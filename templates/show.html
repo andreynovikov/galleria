@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<!--suppress CssUnusedSymbol -->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+    <title>Galleria</title>
+    <link rel="stylesheet" href="/static/photoswipe/photoswipe.css">
+    <link rel="stylesheet" href="/static/photoswipe/default-skin/default-skin.css">
+    <script src="/static/lazysizes.min.js" async></script>
+    <script src="/static/masonry.pkgd.min.js" async></script>
+    <script src="/static/photoswipe/photoswipe.min.js" async></script>
+    <script src="/static/photoswipe/photoswipe-ui-default.min.js" async></script>
+    <style>
+        html { overflow-y: scroll; }
+        body { font-family: sans-serif; }
+        * { box-sizing: border-box; }
+        #thumbnails {
+            /* center */
+            margin: 0 auto;
+        }
+        #thumbnails:after {
+            content: '';
+            display: block;
+            clear: both;
+        }
+        .grid-sizer,
+        .thumbnail {
+            width: 200px;
+        }
+        .thumbnail {
+            float: left;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .thumbnail img {
+            display: block;
+            max-width: 100%;
+        }
+        .lazyload {
+        	opacity: 0;
+        	transform: scale(0.9);
+        }
+        .lazyloaded {
+        	opacity: 1;
+	        transform: scale(1);
+	        transition: all 700ms;
+        }
+
+        /* Desktop */
+        @media screen and (min-width: 737px) {
+            body:after {
+                content: 'screen-medium';
+                display: none;
+            }
+            .grid-sizer,
+            .thumbnail {
+                width: {{ config.THUMBNAIL_WIDTH.m }}px;
+            }
+        }
+        /* Wide */
+        @media screen and (min-width: 1201px) {
+            body:after {
+                content: 'screen-large';
+                display: none;
+            }
+            .grid-sizer,
+            .thumbnail {
+                width: {{ config.THUMBNAIL_WIDTH.l }}px;
+            }
+        }
+        /* Mobile */
+        @media screen and (max-width: 736px) {
+            body:after {
+                content: 'screen-small';
+                display: none;
+            }
+            .grid-sizer,
+            .thumbnail {
+                width: {{ config.THUMBNAIL_WIDTH.s }}px;
+            }
+        }
+    </style>
+</head>
+<body>
+<h1>{{ request.script_root }}{{ bundle }}?{{ query_string }}</h1>
+
+<div id="thumbnails">
+    <div class="grid-sizer"></div>
+</div>
+
+{% include '_photoswipe.html' %}
+
+<!--suppress JSUnusedAssignment -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var thumbnails = [];
+
+    var thumbnail_width = {{ config.THUMBNAIL_WIDTH.m }};
+
+    windowSize();
+    window.onresize = windowSize;
+
+    window.lazySizesConfig = window.lazySizesConfig || {};
+    window.lazySizesConfig.loadMode = 1;
+    window.lazySizesConfig.expand = thumbnail_width * 2;
+
+    var thumbnailsElement = document.getElementById('thumbnails');
+    var masonry = new Masonry(thumbnailsElement, {
+        initLayout: false,
+        fitWidth: true,
+        isFitWidth: true,
+        itemSelector: '.thumbnail',
+        columnWidth: '.grid-sizer'
+    });
+    masonry.on( 'layoutComplete', onLayout );
+
+    var pswpElement = document.getElementById('pswp');
+    var pswp;
+
+    loadQuery('{{ bundle }}?{{ query_string }}');
+
+    function onLayout() {
+        console.log('layout done');
+    }
+
+    function addThumbnail(image) {
+        image.thumbnail = '{{ request.script_root|default('/') }}/thumbnail/' + image.id;
+        // pswp options
+        image.w = image.width;
+        image.h = image.height;
+        //noinspection JSUnresolvedVariable
+        image.src = image.path;
+        image.msrc = image.thumbnail;
+        //noinspection JSUnresolvedVariable
+        image.title = image.description != null && image.description != "" ? image.description : image.name;
+
+        var height = thumbnail_width / image.width * image.height;
+
+        var div = document.createElement('div');
+        div.className = 'thumbnail';
+        div.style.height = height + 'px';
+        div.setAttribute('data-image-index', '' + thumbnails.length);
+        var img = document.createElement('img');
+        img.id = 'thumbnail' + image.id;
+        img.title = image.title;
+        img.className = 'lazyload';
+        img.setAttribute('data-src', image.thumbnail);
+        img.setAttribute('data-sizes', '(max-width: 736px) 80px, (min-width: 1201px) 400px, 200px)');
+        img.setAttribute('data-srcset', image.thumbnail + "?size=s 80w, " + image.thumbnail +
+                                        "?size=m 200w, " + image.thumbnail + "?size=l 400w");
+        img.onclick = onThumbnailClick;
+        div.appendChild(img);
+        thumbnailsElement.appendChild(div);
+
+        image.imageElement = div;
+        thumbnails.push(image);
+    }
+
+    function loadQuery(query) {
+        if (query.indexOf('?') < 0)
+            query = query + '?';
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '{{ request.script_root }}'+query+';action=list', true);
+        xhr.responseType = 'json';
+        xhr.onload = function(e) {
+            if (xhr.readyState === 4) {
+                if (xhr.status >= 200 && xhr.status < 400) {
+                    if (pswp != undefined)
+                        pswp.close();
+                    thumbnails.length = 0;
+                    var elements = thumbnailsElement.getElementsByClassName("thumbnail");
+                    while (elements[0]) {
+                        elements[0].parentNode.removeChild(elements[0]);
+                    }
+                    var images = e.target.response;
+                    for (var i=0; i < images.length; i++)
+                        addThumbnail(images[i]);
+                    masonry.reloadItems();
+                    masonry.layout();
+                } else {
+                    console.error(xhr.statusText);
+                }
+            }
+        };
+        xhr.onerror = function (e) {
+            console.error(xhr.statusText);
+            console.error(e);
+        };
+        xhr.send();
+    }
+
+    function windowSize() {
+        // Get media variant from CSS
+        var afterElement = window.getComputedStyle ? window.getComputedStyle(document.body, ':after') : false;
+        var after = afterElement.getPropertyValue('content').replace(/^["']|["']$/g, '');
+
+        // Update thumbnail width to correspond to CSS value
+        if (after === 'screen-small') {
+            thumbnail_width = {{ config.THUMBNAIL_WIDTH.s }};
+        } else if (after === 'screen-large') {
+            thumbnail_width = {{ config.THUMBNAIL_WIDTH.l }};
+        } else {
+            thumbnail_width = {{ config.THUMBNAIL_WIDTH.m }};
+        }
+
+        // Update LazySizes pre-load distance
+        window.lazySizesConfig.expand = thumbnail_width * 2;
+
+        // Update thumbnail heights
+        for (var i=0; i < thumbnails.length; i++) {
+            var image = thumbnails[i];
+            var height = thumbnail_width / image.width * image.height;
+            image.imageElement.style.height = height + 'px';
+        }
+    }
+
+    // triggers when user clicks on thumbnail
+    var onThumbnailClick = function(e) {
+        e.preventDefault ? e.preventDefault() : e.returnValue = false;
+
+        var eTarget = e.target || e.srcElement;
+
+        // find root element of slide
+        var clickedListItem = closest(eTarget, function(el) {
+            return (el.tagName && el.tagName.toUpperCase() === 'DIV');
+        });
+
+        if(!clickedListItem) {
+            return;
+        }
+
+        var index = clickedListItem.getAttribute('data-image-index');
+        var clickedGallery = clickedListItem.parentNode;
+        if(index >= 0) {
+            // open PhotoSwipe if valid index found
+            openPhotoSwipe(index, clickedGallery);
+        }
+        return false;
+    };
+
+    var openPhotoSwipe = function(index, galleryElement, disableAnimation) {
+        // define options (if needed)
+        var options = {
+            history: false,
+            index: parseInt(index, 10),
+            getThumbBoundsFn: function(index) {
+                // See Options -> getThumbBoundsFn section of documentation for more info
+                var thumbnail = thumbnails[index].imageElement;
+                var pageYScroll = window.pageYOffset || document.documentElement.scrollTop;
+                var rect = thumbnail.getBoundingClientRect();
+                return {x:rect.left, y:rect.top + pageYScroll, w:rect.width};
+            },
+            shareButtons: [
+                {id:'facebook', label:'Share on Facebook', url:'https://www.facebook.com/sharer/sharer.php?u=\{\{url\}\}'},
+                {id:'twitter', label:'Tweet', url:'https://twitter.com/intent/tweet?text=\{\{text\}\}&url=\{\{url\}\}'},
+                {id:'pinterest', label:'Pin it', url:'http://www.pinterest.com/pin/create/button/?url=\{\{url\}\}&media=\{\{image_url\}\}&description={{text}}'},
+                {id:'download', label:'Download original', url:'\{\{raw_image_url\}\}?format=original', download:true}
+            ]
+        };
+
+        if (disableAnimation) {
+            options.showAnimationDuration = 0;
+        }
+
+        // Pass data to PhotoSwipe and initialize it
+        var gallery = new PhotoSwipe(pswpElement, PhotoSwipeUI_Default, thumbnails, options);
+        gallery.init();
+    };
+
+    // find nearest parent element
+    var closest = function closest(el, fn) {
+        return el && ( fn(el) ? el : closest(el.parentNode, fn) );
+    };
+});
+</script>
+</body>
+</html>
