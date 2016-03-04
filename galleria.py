@@ -33,23 +33,24 @@ def index():
 
 @app.route('/<path:path_info>')
 def galleria(path_info):
-    bundle_path = None
+    bundle_path = ''
     image_path = None
 
-    path = ''.join([config.ROOT_DIR, '/', path_info])
-    app.logger.debug("Path: %s" % path)
+    path = '/'.join([config.ROOT_DIR, path_info])
     if os.path.isfile(path):
         image_path = path
     elif os.path.isdir(path):
         bundle_path = '/' + path_info
+    elif path_info:
+        abort(404)
 
     action = request.args.get('action', None)
     image_format = request.args.get('format', None)
     image_id = request.args.get('id', None)
 
-    app.logger.debug("Action: %s" % action)
+    app.logger.debug("Path: %s\nAction: %s" % (path, action))
 
-    if image_path is not None:
+    if image_path:
         if image_format == 'original':
             response = original(image_path)
         else:
@@ -130,7 +131,8 @@ def select(bundle):
         group = 'image'
 
     censored = request.args.get('-filt.censored', None)
-    if censored:
+    if censored is not None:
+        should_sync_bundle = False
         where.append('censored = %s' % censored)
     elif not request.args.get('any', None) and (not labels or '424' not in labels.split(',')):
         where.append('censored = 0')
@@ -140,12 +142,12 @@ def select(bundle):
     sfrom = request.args.get('-filt.from', None)
     if sfrom:
         should_sync_bundle = False
-        where.append('stime >= %s' % sfrom)
+        where.append('stime >= \'%s\'' % sfrom)
 
     still = request.args.get('-filt.till', None)
     if still:
         should_sync_bundle = False
-        where.append('stime <= %s' % still)
+        where.append('stime <= \'%s\'' % still)
 
     if should_sync_bundle:
         path = ''.join([config.ROOT_DIR, bundle])

@@ -97,12 +97,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var thumbnail_width = {{ config.THUMBNAIL_WIDTH.m }};
 
-    windowSize();
-    window.onresize = windowSize;
-
     window.lazySizesConfig = window.lazySizesConfig || {};
     window.lazySizesConfig.loadMode = 1;
-    window.lazySizesConfig.expand = thumbnail_width * 2;
+    window.lazySizesConfig.expand = thumbnail_width * 2; // it's calculated in windowSize() but left here for convenience
+
+    windowSize();
+    window.onresize = windowSize;
 
     var thumbnailsElement = document.getElementById('thumbnails');
     var masonry = new Masonry(thumbnailsElement, {
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var pswpElement = document.getElementById('pswp');
     var pswp;
 
-    loadQuery('{{ bundle }}?{{ query_string }}');
+    loadQuery('{{ bundle }}', '{{ query_string }}');
 
     function onLayout() {
         console.log('layout done');
@@ -156,11 +156,11 @@ document.addEventListener('DOMContentLoaded', function () {
         thumbnails.push(image);
     }
 
-    function loadQuery(query) {
-        if (query.indexOf('?') < 0)
-            query = query + '?';
+    function loadQuery(bundle, query) {
+        if (query.length > 0)
+            query = query + ';';
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', '{{ request.script_root }}'+query+';action=list', true);
+        xhr.open('GET', '{{ request.script_root }}' + bundle + '?' + query + 'action=list', true);
         xhr.responseType = 'json';
         xhr.onload = function(e) {
             if (xhr.readyState === 4) {
