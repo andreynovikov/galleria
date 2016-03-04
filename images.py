@@ -76,14 +76,14 @@ def update_metadata(image_id, bundle, name):
 
     timestamp = None
 
-    if iptc_info[IPTC_DATE_CREATED] and iptc_info[IPTC_TIME_CREATED]:
+    if IPTC_DATE_CREATED in iptc_info and IPTC_TIME_CREATED in iptc_info:
         timestamp_str = iptc_info[IPTC_DATE_CREATED].decode('utf-8') + iptc_info[IPTC_TIME_CREATED].decode('utf-8')
         timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S')
-    elif exif_info[36867]:
+    elif 36867 in exif_info:
         timestamp_str = exif_info[36867]
         timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S')
 
-    if iptc_info[IPTC_KEYWORDS]:
+    if IPTC_KEYWORDS in iptc_info:
         pass
 
     db.execute("UPDATE " + db.tbl_image + " SET width = %s, height = %s, stime = %s WHERE id = %s",
