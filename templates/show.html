@@ -3,12 +3,12 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
-    <title>Galleria</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+    <title>{{ request.script_root }}{{ bundle }}?{{ query_string }}</title>
     <link rel="stylesheet" href="/static/photoswipe/photoswipe.css">
     <link rel="stylesheet" href="/static/photoswipe/default-skin/default-skin.css">
+    <script src="/static/masonry.pkgd.min.js"></script>
     <script src="/static/lazysizes.min.js" async></script>
-    <script src="/static/masonry.pkgd.min.js" async></script>
     <script src="/static/photoswipe/photoswipe.min.js" async></script>
     <script src="/static/photoswipe/photoswipe-ui-default.min.js" async></script>
     <style>
@@ -84,8 +84,6 @@
     </style>
 </head>
 <body>
-<h1>{{ request.script_root }}{{ bundle }}?{{ query_string }}</h1>
-
 <div id="thumbnails">
     <div class="grid-sizer"></div>
 </div>
@@ -227,13 +225,13 @@ document.addEventListener('DOMContentLoaded', function () {
             return (el.tagName && el.tagName.toUpperCase() === 'DIV');
         });
 
-        if(!clickedListItem) {
+        if (!clickedListItem) {
             return;
         }
 
         var index = clickedListItem.getAttribute('data-image-index');
         var clickedGallery = clickedListItem.parentNode;
-        if(index >= 0) {
+        if (index >= 0) {
             // open PhotoSwipe if valid index found
             openPhotoSwipe(index, clickedGallery);
         }
