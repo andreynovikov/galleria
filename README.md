@@ -23,5 +23,7 @@ JS dependencies:
 * https://github.com/desandro/masonry
 * https://github.com/aFarkas/lazysizes
 
+More info:
+
 * [Details](https://github.com/andreynovikov/galleria/wiki/Details)
 * [Useful Links](https://github.com/andreynovikov/galleria/wiki/Useful-Links)
