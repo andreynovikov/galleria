@@ -2,11 +2,11 @@ import os
 import io
 import magic
 import simplejson as json
-from PIL import Image, ExifTags, IptcImagePlugin
+from PIL import Image
 
 from flask import Flask, Response, request, render_template, send_file, abort
 
-from images import sync_bundle, make_thumbnail, iptc_tags
+from images import sync_bundle, GalleriaImage
 import db
 import config
 
@@ -187,18 +187,18 @@ def select(bundle):
         image['path'] = ''.join([request.script_root, image['bundle'], '/', image['name']])
 
     response = Response(response=json.dumps(images, indent=4, ensure_ascii=False),
-                        status=200, mimetype='application/json')
+                        status=200, mimetype='application/json; charset=utf-8')
     return response
 
 
 def view(image_path, image_format):
     export = image_format == 'export'
+    image = GalleriaImage.frompath(image_path)
+    image.open()
 
-    image = Image.open(image_path)
-
-    fmt = image.format
-    ox = image.width
-    oy = image.height
+    fmt = image.image.format
+    ox = image.image.width
+    oy = image.image.height
     rx = config.SCREEN_MAX_WIDTH
     ry = config.SCREEN_MAX_HEIGHT
 
@@ -214,10 +214,12 @@ def view(image_path, image_format):
         nx = int(ox / oy * ny)
 
     if ox > int(nx * config.SCREEN_DELTA) or oy > int(ny * config.SCREEN_DELTA):
-        image = image.resize((nx, ny), Image.LANCZOS)
+        im = image.image.resize((nx, ny), Image.LANCZOS)
+    else:
+        im = image.image
 
     b = io.BytesIO()
-    image.save(b, format=fmt)
+    im.save(b, format=fmt)
     b.seek(0)
     mime_type = magic.from_buffer(b.read(1024), mime=True).decode('utf-8')
     b.seek(0)
@@ -251,11 +253,8 @@ def thumbnail(image_id):
     size = request.args.get('size', 'm')
     force = bool(request.args.get('force', None))
 
-    # noinspection SqlResolve
-    image = db.fetch("SELECT name, bundle FROM " + db.tbl_image + " WHERE id=%s", [image_id], True)
-
-    path = ''.join([config.ROOT_DIR, image['bundle'], '/', image['name']])
-    thumbnail_path = make_thumbnail(path, size, force)
+    image = GalleriaImage.fromid(image_id)
+    thumbnail_path = image.make_thumbnail(size, force)
 
     # add_log(request, db, image_id, 4)
 
@@ -270,43 +269,10 @@ def thumbnail(image_id):
 
 @app.route('/info/<int:image_id>')
 def info(image_id):
-    image = db.fetch(
-        "SELECT id, name, bundle, description, stime AS shooting_time FROM " + db.tbl_image + " WHERE id=%s",
-        [image_id], True)
-
-    # Get rating
-    # cursor.execute("SELECT AVG(rating) AS average FROM " + tbl_image_rating + " WHERE image = %s GROUP BY image", [imageId])
-    # rating = cursor.fetchone()
-    # if rating != None:
-    #    image['rating'] = rating
-
-    # Get labels
-    # cursor.execute("SELECT id, name FROM " + tbl_label + " INNER JOIN " + tbl_image_label + " ON (label = id AND image = %s)", [imageId])
-    # labels = cursor.fetchall()
-    # if labels != None:
-    #    image['labels'] = labels
-
-
+    image = GalleriaImage.fromid(image_id)
+    image.expand()
     # add_log(request, db, imageId, 5)
-
-    im = Image.open(''.join([config.ROOT_DIR, image['bundle'], '/', image['name']]))
-    exif = {}
-    iptc = {}
-    exif_info = im._getexif() or {}
-    for tag, value in exif_info.items():
-        decoded = ExifTags.TAGS.get(tag, str(tag))
-        exif[decoded] = value
-    iptc_info = IptcImagePlugin.getiptcinfo(im) or {}
-    for tag, value in iptc_info.items():
-        decoded = iptc_tags.get(tag, str(tag))
-        iptc[decoded] = value
-    image['exif'] = exif
-    image['iptc'] = iptc
-
-    image['path'] = ''.join([request.script_root, image['bundle'], '/', image['name']])
-    image['shooting_time'] = image['shooting_time'].isoformat()
-
-    response = Response(response=json.dumps(image, indent=4, ensure_ascii=False),
+    response = Response(response=json.dumps(image.get_data(request.script_root), indent=4, ensure_ascii=False),
                         status=200, mimetype='application/json; charset=utf-8')
     return response
 
