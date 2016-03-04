@@ -1,20 +1,25 @@
 import os
 import time
 import re
-from PIL import Image, ExifTags, IptcImagePlugin
+from datetime import datetime
+from PIL import Image, IptcImagePlugin
 
 from flask import current_app
 
 import db
 import config
 
+IPTC_KEYWORDS = (2, 25)
+IPTC_DATE_CREATED = (2, 55)
+IPTC_TIME_CREATED = (2, 60)
 
 iptc_tags = {
+    (1, 90): 'CodedCharacterSet',
     (2, 0): 'RecordVersion',
     (2, 5): 'ObjectName',  # title
-    (2, 25): 'Keywords',
-    (2, 55): 'DateCreated',
-    (2, 60): 'TimeCreated',
+    IPTC_KEYWORDS: 'Keywords',
+    IPTC_DATE_CREATED: 'DateCreated',
+    IPTC_TIME_CREATED: 'TimeCreated',
     (2, 62): 'DigitizationDate',
     (2, 63): 'DigitizationTime',
     (2, 80): 'Byline',  # author
@@ -49,7 +54,8 @@ def sync_bundle(path, bundle):
             remove_image(ids[name])
         # Image is in sync, currently do nothing
         else:
-            pass
+            update_metadata(ids[name], bundle, name)
+            # pass
 
 
 # noinspection SqlResolve
@@ -65,13 +71,30 @@ def add_image(bundle, name):
 
 def update_metadata(image_id, bundle, name):
     image = Image.open(''.join([config.ROOT_DIR, bundle, '/', name]))
+
     iptc_info = IptcImagePlugin.getiptcinfo(image) or {}
+    exif_info = image._getexif() or {}
+
+    timestamp_str = ''
+
     for tag, value in iptc_info.items():
-        decoded = iptc_tags.get(tag, str(tag))
-        if decoded == 'Keywords':
+        if tag == IPTC_KEYWORDS:
             pass
-    db.execute("UPDATE " + db.tbl_image + " SET width = %s, height = %s WHERE id = %s",
-               [image.width, image.height, image_id])
+        if tag == IPTC_DATE_CREATED:
+            current_app.logger.debug('DateCreated: %s' % value)
+            timestamp_str = value.decode('utf-8') + timestamp_str
+        if tag == IPTC_TIME_CREATED:
+            current_app.logger.debug('TimeCreated: %s' % value)
+            timestamp_str = timestamp_str + value.decode('utf-8')
+
+    timestamp = None
+    if len(timestamp_str) == 14:
+        timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S')
+    elif exif_info[36867]:
+        timestamp = datetime.strptime(exif_info[36867], '%Y:%m:%d %H:%M:%S')
+
+    db.execute("UPDATE " + db.tbl_image + " SET width = %s, height = %s, stime = %s WHERE id = %s",
+               [image.width, image.height, timestamp, image_id])
     db.commit()
 
 

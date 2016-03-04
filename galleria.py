@@ -2,11 +2,11 @@ import os
 import io
 import magic
 import simplejson as json
-from PIL import Image
+from PIL import Image, ExifTags, IptcImagePlugin
 
 from flask import Flask, Response, request, render_template, send_file, abort
 
-from images import sync_bundle, make_thumbnail
+from images import sync_bundle, make_thumbnail, iptc_tags
 import db
 import config
 
@@ -264,6 +264,49 @@ def thumbnail(image_id):
                          conditional=True, add_etags=True)
     response.content_length = os.path.getsize(thumbnail_path)
     response.last_modified = os.path.getmtime(thumbnail_path)
+    return response
+
+
+@app.route('/info/<int:image_id>')
+def info(image_id):
+    image = db.fetch(
+        "SELECT id, name, bundle, description, stime AS shooting_time FROM " + db.tbl_image + " WHERE id=%s",
+        [image_id], True)
+
+    # Get rating
+    # cursor.execute("SELECT AVG(rating) AS average FROM " + tbl_image_rating + " WHERE image = %s GROUP BY image", [imageId])
+    # rating = cursor.fetchone()
+    # if rating != None:
+    #    image['rating'] = rating
+
+    # Get labels
+    # cursor.execute("SELECT id, name FROM " + tbl_label + " INNER JOIN " + tbl_image_label + " ON (label = id AND image = %s)", [imageId])
+    # labels = cursor.fetchall()
+    # if labels != None:
+    #    image['labels'] = labels
+
+
+    # add_log(request, db, imageId, 5)
+
+    im = Image.open(''.join([config.ROOT_DIR, image['bundle'], '/', image['name']]))
+    exif = {}
+    iptc = {}
+    exif_info = im._getexif() or {}
+    for tag, value in exif_info.items():
+        decoded = ExifTags.TAGS.get(tag, str(tag))
+        exif[decoded] = value
+    iptc_info = IptcImagePlugin.getiptcinfo(im) or {}
+    for tag, value in iptc_info.items():
+        decoded = iptc_tags.get(tag, str(tag))
+        iptc[decoded] = value
+    image['exif'] = exif
+    image['iptc'] = iptc
+
+    image['path'] = ''.join([request.script_root, image['bundle'], '/', image['name']])
+    image['shooting_time'] = image['shooting_time'].isoformat()
+
+    response = Response(response=json.dumps(image, indent=4, ensure_ascii=False),
+                        status=200, mimetype='application/json; charset=utf-8')
     return response
 
 
