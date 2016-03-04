@@ -151,7 +151,8 @@ def select(bundle):
 
     if should_sync_bundle:
         path = ''.join([config.ROOT_DIR, bundle])
-        sync_bundle(path, bundle)
+        should_update_metadata = bool(request.args.get('updatemetadata', None))
+        sync_bundle(path, bundle, should_update_metadata)
 
     # noinspection SqlResolve
     query = 'SELECT id, name, bundle, description, width, height FROM ' + db.tbl_image

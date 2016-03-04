@@ -28,7 +28,7 @@ iptc_tags = {
 
 
 # noinspection SqlResolve
-def sync_bundle(path, bundle):
+def sync_bundle(path, bundle, should_update_metadata=False):
     current_app.logger.debug("Path: %s Bundle: %s" % (path, bundle))
     # List files in directory
     files = [f for f in os.listdir(path) if f.lower().endswith('.jpg')]
@@ -52,10 +52,9 @@ def sync_bundle(path, bundle):
         # Image is in the database but not in the directory
         elif items[name] == 1:
             remove_image(ids[name])
-        # Image is in sync, currently do nothing
-        else:
+        # Image is in sync, update metadata if requested
+        elif should_update_metadata:
             update_metadata(ids[name], bundle, name)
-            # pass
 
 
 # noinspection SqlResolve
@@ -75,23 +74,17 @@ def update_metadata(image_id, bundle, name):
     iptc_info = IptcImagePlugin.getiptcinfo(image) or {}
     exif_info = image._getexif() or {}
 
-    timestamp_str = ''
-
-    for tag, value in iptc_info.items():
-        if tag == IPTC_KEYWORDS:
-            pass
-        if tag == IPTC_DATE_CREATED:
-            current_app.logger.debug('DateCreated: %s' % value)
-            timestamp_str = value.decode('utf-8') + timestamp_str
-        if tag == IPTC_TIME_CREATED:
-            current_app.logger.debug('TimeCreated: %s' % value)
-            timestamp_str = timestamp_str + value.decode('utf-8')
-
     timestamp = None
-    if len(timestamp_str) == 14:
+
+    if iptc_info[IPTC_DATE_CREATED] and iptc_info[IPTC_TIME_CREATED]:
+        timestamp_str = iptc_info[IPTC_DATE_CREATED].decode('utf-8') + iptc_info[IPTC_TIME_CREATED].decode('utf-8')
         timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S')
     elif exif_info[36867]:
-        timestamp = datetime.strptime(exif_info[36867], '%Y:%m:%d %H:%M:%S')
+        timestamp_str = exif_info[36867]
+        timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S')
+
+    if iptc_info[IPTC_KEYWORDS]:
+        pass
 
     db.execute("UPDATE " + db.tbl_image + " SET width = %s, height = %s, stime = %s WHERE id = %s",
                [image.width, image.height, timestamp, image_id])
