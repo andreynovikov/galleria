@@ -1,7 +1,7 @@
 import psycopg2
 import psycopg2.extras
 
-from flask import g
+from flask import g, current_app
 
 import config
 
@@ -41,12 +41,31 @@ def execute(query, args=()):
     return result[0] if result else None
 
 
-def fetch(query, args=(), one=False):
-    cursor = get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+def fetch(query, args=(), one=False, as_list=False):
+    """
+    Fetches data from database
+
+    :param query: SQL query
+    :param args: Arguments for SQL query
+    :param one: If `true` only first row is fetched
+    :param as_list: If `true` data is fetched as array, otherwise dictionary is used, useful only with one-column query
+    :return: Single value, or list of values (column), or dictionary or list of dictionaries
+    """
+    if as_list:
+        cursor = get_db().cursor()
+    else:
+        cursor = get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cursor.execute(query, args)
     if one:
         result = cursor.fetchone()
     else:
         result = cursor.fetchall()
     cursor.close()
-    return result
+    if result is None:
+        return None
+    elif one and as_list:
+        return result[0]
+    elif as_list:
+        return [element for (element,) in result]
+    else:
+        return result

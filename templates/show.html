@@ -12,8 +12,13 @@
     <script src="/static/photoswipe/photoswipe.min.js" async></script>
     <script src="/static/photoswipe/photoswipe-ui-default.min.js" async></script>
     <style>
+        @import url("http://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700|Open+Sans+Condensed:300,700");
+
         html { overflow-y: scroll; }
-        body { font-family: sans-serif; }
+
+        body {
+            font-family: "Open Sans", sans-serif;
+        }
         * { box-sizing: border-box; }
         #thumbnails {
             /* center */
@@ -33,6 +38,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
         }
         .thumbnail img {
             display: block;
@@ -46,6 +52,20 @@
         	opacity: 1;
 	        transform: scale(1);
 	        transition: all 700ms;
+        }
+
+        .pswp__labels, .pswp__exif {
+            font-size: 80%;
+        }
+
+        .pswp__labels:before, .pswp__exif:before {
+            content: '\2014 ';
+            padding: 0 0.5em;
+        }
+
+        .pswp__labels a {
+            cursor: pointer;
+            color: #55ACEE;
         }
 
         /* Desktop */
@@ -103,6 +123,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     windowSize();
     window.onresize = windowSize;
+    document.loadLocation = loadLocation;
 
     var thumbnailsElement = document.getElementById('thumbnails');
     var masonry = new Masonry(thumbnailsElement, {
@@ -117,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var pswpElement = document.getElementById('pswp');
     var pswp;
 
-    loadQuery('{{ bundle }}', '{{ query_string }}');
+    loadQuery('{{ query }}');
 
     function onLayout() {
         console.log('layout done');
@@ -156,11 +177,15 @@ document.addEventListener('DOMContentLoaded', function () {
         thumbnails.push(image);
     }
 
-    function loadQuery(bundle, query) {
-        if (query.length > 0)
+    function loadQuery(query) {
+        if (query.indexOf('?') < 0)
+            query = query + '?';
+        else
             query = query + ';';
+        query = '{{ request.script_root }}' + query + 'action=list';
+        console.log("Query: " + query);
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', '{{ request.script_root }}' + bundle + '?' + query + 'action=list', true);
+        xhr.open('GET', query, true);
         xhr.responseType = 'json';
         xhr.onload = function(e) {
             if (xhr.readyState === 4) {
@@ -187,6 +212,14 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error(e);
         };
         xhr.send();
+    }
+
+    function loadLocation(newLocation) {
+        // fixme: history (back) does not work
+        if (history && history.pushState)
+            history.pushState(newLocation, newLocation, newLocation);
+        newLocation = newLocation.replace('/{{ request.script_root }}', '');
+        loadQuery(newLocation);
     }
 
     function windowSize() {
@@ -263,8 +296,71 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Pass data to PhotoSwipe and initialize it
-        var gallery = new PhotoSwipe(pswpElement, PhotoSwipeUI_Default, thumbnails, options);
-        gallery.init();
+        pswp = new PhotoSwipe(pswpElement, PhotoSwipeUI_Default, thumbnails, options);
+
+        pswp.listen('gettingData', function (index, image) {
+            if (!image.info) {
+                image.info = true;
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '{{ request.script_root|default('/') }}/info/' + image.id, true);
+                xhr.responseType = 'json';
+                xhr.onload = function (e) {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status >= 200 && xhr.status < 400) {
+                            var second = e.target.response;
+                            for (var prop in second) {
+                                if (second.hasOwnProperty(prop))
+                                    image[prop] = second[prop];
+                            }
+                            var labels = [];
+                            for (var i in image.labels) {
+                                //noinspection JSUnresolvedVariable
+                                labels.push('<a onclick="loadLocation(\'{{ request.script_root|default('/') }}?-filt.labels=' + image.labels[i].id + '\')" class="label">' + image.labels[i].name + '</a>');
+                            }
+                            var expanded = false;
+                            if (labels.length > 0) {
+                                image.title += '<span class="pswp__labels">' + labels.join(', ') + '</span>';
+                                expanded = true;
+                            }
+                            if (image.exif) {
+                                var fln = image.exif.FocalLength[0] / image.exif.FocalLength[1];
+                                var fnm = image.exif.FNumber[0] / image.exif.FNumber[1];
+                                var exp, et0 = image.exif.ExposureTime[0], et1 = image.exif.ExposureTime[1];
+                                if (et0 < et1) {
+                                    if (et0 != 1) {
+                                        et1 = et1 / et0;
+                                    }
+                                    exp = '1/' + et1;
+                                } else {
+                                    exp = et0 / et1;
+                                }
+                                var iso = image.exif.ISOSpeedRatings;
+                                var exif = [];
+                                exif.push(fln + 'mm');
+                                exif.push('ISO ' + iso);
+                                exif.push(exp + 's');
+                                exif.push('f/' + fnm);
+                                image.title += '<span class="pswp__exif">' + exif.join(', ') + '</span>';
+                                expanded = true;
+                            }
+                            if (expanded && pswp.currItem.id == image.id) {
+                                pswp.invalidateCurrItems();
+                                pswp.updateSize(false);
+                            }
+                        } else {
+                            console.error(xhr.statusText);
+                        }
+                    }
+                };
+                xhr.onerror = function (e) {
+                    console.error(xhr.statusText);
+                    console.error(e);
+                };
+                xhr.send();
+            }
+        });
+
+        pswp.init();
     };
 
     // find nearest parent element

@@ -45,40 +45,29 @@ def galleria(path_info):
         abort(404)
 
     action = request.args.get('action', None)
-    image_format = request.args.get('format', None)
-    image_id = request.args.get('id', None)
 
     app.logger.debug("Path: %s\nAction: %s" % (path, action))
 
     if image_path:
+        image_format = request.args.get('format', None)
         if image_format == 'original':
             response = original(image_path)
         else:
             response = view(image_path, image_format)
     elif action == 'list':
         response = select(bundle_path)
-    elif action == 'thumbnail':
-        size = request.args.get('size', 'm')
-        force = bool(request.args.get('force', None))
-        response = thumbnail(image_id, size, force)
+    elif action is not None:
+        response = 'Unknown action'
     else:
         query_string = request.query_string.decode('utf-8')
-        response = render_template('show.html', request=request, config=config, bundle=bundle_path, query_string=query_string)
+        query = bundle_path
+        if query_string:
+            query = query + '?' + query_string
+        response = render_template('show.html', request=request, config=config, query=query)
 
     """
-    elif action == 'info':
-        response = info(request, image_id)
     elif action == 'log':
         response = log(request, image_id)
-    elif action == 'env':
-        response = Response(content_type='text/plain', charset='utf-8')
-        parts = []
-        for name, value in sorted(request.environ.items()):
-            parts.append('%s: %r' % (name, value))
-        response.text = '\n'.join(parts)
-    elif not action is None:
-        response = Response(content_type='text/plain', charset='utf-8')
-        response.text = 'Unknown action'
     """
 
     # response.cache_control.private = True
@@ -119,16 +108,18 @@ def select(bundle):
     if labels:
         should_sync_bundle = False
         where.append(db.tbl_image_label + '.label IS NOT NULL')
-        having.extend(map(lambda x: 'SUM(IF(label=%s,1,0)) > 0' % x, labels.split(',')))
+        # mysql syntax: SUM(IF(label=%s,1,0)) > 0
+        having.extend(map(lambda x: 'SUM(CASE WHEN label=%s THEN 1 ELSE 0 END) > 0' % x, labels.split(',')))
         join = 'INNER JOIN ' + db.tbl_image_label + ' ON (id = image)'
-        group = 'image'
+        group = 'id'
     if notlabels:
         should_sync_bundle = False
         # todo: where clause should not be added twice
         where.append(db.tbl_image_label + '.label IS NOT NULL')
-        having.extend(map(lambda x: 'SUM(IF(label=%s,1,0)) = 0' % x, notlabels.split(',')))
+        # mysql syntax: SUM(IF(label=%s,1,0)) = 0
+        having.extend(map(lambda x: 'SUM(CASE WHEN label=%s THEN 1 ELSE 0 END) = 0' % x, notlabels.split(',')))
         join = 'INNER JOIN ' + db.tbl_image_label + ' ON (id = image)'
-        group = 'image'
+        group = 'id'
 
     censored = request.args.get('-filt.censored', None)
     if censored is not None:

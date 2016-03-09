@@ -6,6 +6,7 @@ from PIL import Image, ExifTags, IptcImagePlugin
 
 from flask import current_app
 
+from util import diff
 import db
 import config
 
@@ -41,56 +42,23 @@ def sync_bundle(path, bundle, should_update_metadata=False):
         if items[image['name']] == 3:
             # Remove duplicates
             im = GalleriaImage.fromid(image['id'])
-            im.remove(keep_file=True)
+            im.delete(keep_file=True)
             continue
         items[image['name']] += 1
         ids[image['name']] = image['id']
     # Analyze what was found
     for name in sorted(items):
-        image = GalleriaImage.fromid(ids[name])
         # Image is in the directory but not in database
         if items[name] == 2:
-            add_image(bundle, name)
+            image = GalleriaImage.create(bundle, name)
         # Image is in the database but not in the directory
         elif items[name] == 1:
+            image = GalleriaImage.fromid(ids[name])
             image.remove()
         # Image is in sync, update metadata if requested
         elif should_update_metadata:
-            update_metadata(ids[name], bundle, name)
-
-
-# noinspection SqlResolve
-def add_image(bundle, name):
-    # TODO: Use gmtime instead?
-    localtime = time.localtime()
-    now = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
-    image_id = db.execute("INSERT INTO " + db.tbl_image + "(bundle, name, ctime) VALUES(%s,%s,%s) RETURNING id",
-                          [bundle, name, now])
-    db.commit()
-    update_metadata(image_id, bundle, name)
-
-
-def update_metadata(image_id, bundle, name):
-    image = Image.open(''.join([config.ROOT_DIR, bundle, '/', name]))
-
-    iptc_info = IptcImagePlugin.getiptcinfo(image) or {}
-    exif_info = image._getexif() or {}
-
-    timestamp = None
-
-    if IPTC_DATE_CREATED in iptc_info and IPTC_TIME_CREATED in iptc_info:
-        timestamp_str = iptc_info[IPTC_DATE_CREATED].decode('utf-8') + iptc_info[IPTC_TIME_CREATED].decode('utf-8')
-        timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S')
-    elif 36867 in exif_info:
-        timestamp_str = exif_info[36867]
-        timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S')
-
-    if IPTC_KEYWORDS in iptc_info:
-        pass
-
-    db.execute("UPDATE " + db.tbl_image + " SET width = %s, height = %s, stime = %s WHERE id = %s",
-               [image.width, image.height, timestamp, image_id])
-    db.commit()
+            image = GalleriaImage.fromid(ids[name])
+            image.update_metadata()
 
 
 # noinspection PyUnresolvedReferences
@@ -114,14 +82,31 @@ class GalleriaImage(object):
         return _object
 
     # noinspection SqlResolve
-    def remove(self, keep_file=False):
+    @classmethod
+    def create(cls, bundle, name):
+        # TODO: Use gmtime instead?
+        localtime = time.localtime()
+        now = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
+        image_id = db.execute("INSERT INTO " + db.tbl_image + "(bundle, name, ctime) VALUES(%s,%s,%s) RETURNING id",
+                              [bundle, name, now])
+        db.commit()
+        _object = cls.fromid(image_id)
+        setattr(_object, 'name', name)
+        setattr(_object, 'bundle', bundle)
+        setattr(_object, 'ctime', now)
+        _object.update_metadata()
+
+    # noinspection SqlResolve
+    def delete(self, keep_file=False):
         db.execute("DELETE FROM " + db.tbl_image_log + " WHERE image=%s", [self.id])
         db.execute("DELETE FROM " + db.tbl_image_rating + " WHERE image=%s", [self.id])
         db.execute("DELETE FROM " + db.tbl_image_referrer + " WHERE image=%s", [self.id])
         db.execute("DELETE FROM " + db.tbl_image_label + " WHERE image=%s", [self.id])
         db.execute("DELETE FROM " + db.tbl_image + " WHERE id=%s", [self.id])
         db.commit()
-        # todo: add file deletion
+        if not keep_file:
+            # TODO: add file deletion
+            pass
 
     # noinspection SqlResolve
     def fetch_data(self):
@@ -129,7 +114,7 @@ class GalleriaImage(object):
         if hasattr(self, 'ctime'):
             return
         assert hasattr(self, 'id'), "id must be set before fetching data"
-        data = db.fetch("SELECT * FROM " + db.tbl_image + " WHERE id=%s", [self.id], True)
+        data = db.fetch("SELECT * FROM " + db.tbl_image + " WHERE id=%s", [self.id], one=True)
         for k, v in data.items():
             setattr(self, k, v)
 
@@ -158,6 +143,7 @@ class GalleriaImage(object):
         self.ensure_path()
         self.image = Image.open(self.path)
 
+    # noinspection SqlResolve
     def expand(self):
         self.fetch_data()
         # Get rating
@@ -171,6 +157,11 @@ class GalleriaImage(object):
         # labels = cursor.fetchall()
         # if labels != None:
         #    image['labels'] = labels
+        self.labels = db.fetch(
+            "SELECT id, name FROM " + db.tbl_label + " INNER JOIN " + db.tbl_image_label + " ON (label = id AND image = %s)",
+            [self.id])
+        # if labels:
+        #    self.labels = dict((label['id'], label['name']) for label in labels)
 
         # get meta data
         self.open()
@@ -186,6 +177,62 @@ class GalleriaImage(object):
             iptc[decoded] = value
         self.exif = exif
         self.iptc = iptc
+
+    # noinspection SqlResolve
+    def set_labels(self, label_names):
+        assert hasattr(self, 'id'), "id must be set before fetching data"
+        # select ids for each label
+        labels = []
+        for label_name in label_names:
+            label = db.fetch("SELECT id FROM " + db.tbl_label + " WHERE name=%s", [label_name], one=True, as_list=True)
+            if label is None:
+                label = db.execute("INSERT INTO " + db.tbl_label + "(name) VALUES(%s) RETURNING id", [label_name])
+                db.commit()
+            labels.append(label)
+        # get current labels
+        current_labels = db.fetch("SELECT label FROM " + db.tbl_image_label + " WHERE image=%s", [self.id],
+                                  as_list=True)
+        # update database
+        to_be_added = diff(labels, current_labels)
+        to_be_deleted = diff(current_labels, labels)
+        for label in to_be_added:
+            db.execute("INSERT INTO " + db.tbl_image_label + "(image, label) VALUES(%s,%s)", [self.id, label])
+        for label in to_be_deleted:
+            db.execute("DELETE FROM " + db.tbl_image_label + " WHERE image=%s AND label=%s", [self.id, label])
+            # if label is not used anymore, delete it permanently
+            count = db.fetch("SELECT COUNT(image) FROM label_image WHERE label=%s", [label], one=True, as_list=True)
+            if not count:
+                db.execute("DELETE FROM " + db.tbl_label + " WHERE id=%s", [label])
+        return labels
+
+    def update_metadata(self):
+        self.open()
+
+        iptc_info = IptcImagePlugin.getiptcinfo(self.image) or {}
+        exif_info = self.image._getexif() or {}
+
+        timestamp = None
+
+        if IPTC_DATE_CREATED in iptc_info and IPTC_TIME_CREATED in iptc_info:
+            timestamp_str = iptc_info[IPTC_DATE_CREATED].decode('utf-8') + iptc_info[IPTC_TIME_CREATED].decode('utf-8')
+            timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S')
+        elif 36867 in exif_info:
+            timestamp_str = exif_info[36867]
+            timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S')
+        # TODO: Add DateTimeDigitized
+
+        if IPTC_KEYWORDS in iptc_info:
+            labels = []
+            if isinstance(iptc_info[IPTC_KEYWORDS], list):
+                for label in iptc_info[IPTC_KEYWORDS]:
+                    labels.append(label.decode('utf-8'))
+            else:
+                labels.append(iptc_info[IPTC_KEYWORDS].decode('utf-8'))
+            self.set_labels(labels)
+
+        db.execute("UPDATE " + db.tbl_image + " SET width=%s, height=%s, stime=%s WHERE id=%s",
+                   [self.image.width, self.image.height, timestamp, self.id])
+        db.commit()
 
     def make_thumbnail(self, size='m', force=False):
         self.ensure_path()
