@@ -1,7 +1,7 @@
 import psycopg2
 import psycopg2.extras
 
-from flask import g, current_app
+from flask import g
 
 import config
 

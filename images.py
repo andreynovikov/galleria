@@ -10,9 +10,13 @@ from util import diff
 import db
 import config
 
+EXIF_DATE_TIME_ORIGINAL = 36867
+EXIF_DATE_TIME_DIGITIZED = 36868
+
 IPTC_KEYWORDS = (2, 25)
 IPTC_DATE_CREATED = (2, 55)
 IPTC_TIME_CREATED = (2, 60)
+IPTC_BYLINE = (2, 80)
 
 iptc_tags = {
     (1, 90): 'CodedCharacterSet',
@@ -23,7 +27,7 @@ iptc_tags = {
     IPTC_TIME_CREATED: 'TimeCreated',
     (2, 62): 'DigitizationDate',
     (2, 63): 'DigitizationTime',
-    (2, 80): 'Byline',  # author
+    IPTC_BYLINE: 'Byline',  # author
     (2, 120): 'Caption',
 }
 
@@ -152,16 +156,12 @@ class GalleriaImage(object):
         # if rating != None:
         #    image['rating'] = rating
 
-        # Get labels
-        # cursor.execute("SELECT id, name FROM " + tbl_label + " INNER JOIN " + tbl_image_label + " ON (label = id AND image = %s)", [imageId])
-        # labels = cursor.fetchall()
-        # if labels != None:
-        #    image['labels'] = labels
-        self.labels = db.fetch(
+        # get labels
+        labels = db.fetch(
             "SELECT id, name FROM " + db.tbl_label + " INNER JOIN " + db.tbl_image_label + " ON (label = id AND image = %s)",
             [self.id])
-        # if labels:
-        #    self.labels = dict((label['id'], label['name']) for label in labels)
+        if labels:
+            self.labels = labels
 
         # get meta data
         self.open()
@@ -216,10 +216,12 @@ class GalleriaImage(object):
         if IPTC_DATE_CREATED in iptc_info and IPTC_TIME_CREATED in iptc_info:
             timestamp_str = iptc_info[IPTC_DATE_CREATED].decode('utf-8') + iptc_info[IPTC_TIME_CREATED].decode('utf-8')
             timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S')
-        elif 36867 in exif_info:
-            timestamp_str = exif_info[36867]
+        elif EXIF_DATE_TIME_ORIGINAL in exif_info:
+            timestamp_str = exif_info[EXIF_DATE_TIME_ORIGINAL]
             timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S')
-        # TODO: Add DateTimeDigitized
+        elif EXIF_DATE_TIME_DIGITIZED in exif_info:
+            timestamp_str = exif_info[EXIF_DATE_TIME_DIGITIZED]
+            timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S')
 
         if IPTC_KEYWORDS in iptc_info:
             labels = []
