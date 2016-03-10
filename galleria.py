@@ -60,7 +60,10 @@ def galleria(path_info):
         response = 'Unknown action'
     elif bundle_path or request.args:
         query_string = request.query_string.decode('utf-8')
-        query = bundle_path
+        if bundle_path:
+            query = bundle_path
+        else:
+            query = '/'
         if query_string:
             query = query + '?' + query_string
         response = render_template('show.html', request=request, config=config, query=query)
