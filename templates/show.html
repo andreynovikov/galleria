@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             var labels = [];
                             for (var i in image.labels) {
                                 //noinspection JSUnresolvedVariable
-                                labels.push('<a onclick="loadLocation(\'{{ request.script_root|default('/') }}?-filt.labels=' + image.labels[i].id + '\')" class="label">' + image.labels[i].name + '</a>');
+                                labels.push('<a onclick="loadLocation(\'{{ request.script_root }}/?-filt.labels=' + image.labels[i].id + '\')" class="label">' + image.labels[i].name + '</a>');
                             }
                             var expanded = false;
                             if (labels.length > 0) {

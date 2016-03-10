@@ -26,27 +26,22 @@ app.debug = True
 app.wsgi_app = QueryStringRedirectMiddleware(app.wsgi_app)
 
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-
+@app.route('/', defaults={'path_info': None})
 @app.route('/<path:path_info>')
 def galleria(path_info):
     bundle_path = ''
     image_path = None
 
-    path = '/'.join([config.ROOT_DIR, path_info])
-    if os.path.isfile(path):
-        image_path = path
-    elif os.path.isdir(path):
-        bundle_path = '/' + path_info
-    elif path_info:
-        abort(404)
+    if path_info:
+        path = '/'.join([config.ROOT_DIR, path_info])
+        if os.path.isfile(path):
+            image_path = path
+        elif os.path.isdir(path):
+            bundle_path = '/' + path_info
+        elif path_info:
+            abort(404)
 
     action = request.args.get('action', None)
-
-    app.logger.debug("Path: %s\nAction: %s" % (path, action))
 
     if image_path:
         image_format = request.args.get('format', None)
@@ -58,12 +53,14 @@ def galleria(path_info):
         response = select(bundle_path)
     elif action is not None:
         response = 'Unknown action'
-    else:
+    elif bundle_path or request.args:
         query_string = request.query_string.decode('utf-8')
         query = bundle_path
         if query_string:
             query = query + '?' + query_string
         response = render_template('show.html', request=request, config=config, query=query)
+    else:
+        response = render_template('index.html', request=request, config=config)
 
     """
     elif action == 'log':
