@@ -88,6 +88,11 @@ def after_request(response):
     return response
 
 
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+
 @app.errorhandler(413)
 def bad_query(error):
     return 'Query should be more specific', error
