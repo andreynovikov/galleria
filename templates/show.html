@@ -125,14 +125,12 @@ document.addEventListener('DOMContentLoaded', function () {
     window.lazySizesConfig.expand = thumbnail_width * 2; // it's calculated in windowSize() but left here for convenience
 
     windowSize();
-    window.addEventListener('onresize', windowSize);
+    window.onresize = windowSize;
+    document.loadLocation = loadLocation;
     window.addEventListener('popstate', function(e) {
-        console.log('popstate fired: ' + e.state);
         if (e.state)
             loadLocation(e.state, false);
     });
-
-    document.loadLocation = loadLocation;
 
     var thumbnailsElement = document.getElementById('thumbnails');
     var masonry = new Masonry(thumbnailsElement, {
@@ -232,7 +230,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function windowSize() {
-        console.log("windowSize");
         // Get media variant from CSS
         var afterElement = window.getComputedStyle ? window.getComputedStyle(document.body, ':after') : false;
         var after = afterElement.getPropertyValue('content').replace(/^["']|["']$/g, '');
