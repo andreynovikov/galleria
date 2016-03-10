@@ -224,8 +224,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function loadLocation(newLocation, addHistory) {
-        if (addHistory && history && history.pushState)
+        if (addHistory && history && history.pushState) {
             history.pushState(newLocation, newLocation, newLocation);
+            if (ga)
+                ga('send', 'event', 'Gallery', 'show', newLocation);
+        }
         loadQuery(newLocation);
     }
 
@@ -376,5 +379,15 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 });
 </script>
+{% if config.GOOGLE_ANALYTICS %}
+<!-- Google Analytics -->
+<script>
+    window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+    ga('create', '{{config.GOOGLE_ANALYTICS}}', 'auto');
+    ga('send', 'event', 'Gallery', 'show', '{{ request.script_root }}{{ query }}');
+</script>
+<script async src='//www.google-analytics.com/analytics.js'></script>
+<!-- End Google Analytics -->
+{% endif %}
 </body>
 </html>
