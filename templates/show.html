@@ -125,7 +125,13 @@ document.addEventListener('DOMContentLoaded', function () {
     window.lazySizesConfig.expand = thumbnail_width * 2; // it's calculated in windowSize() but left here for convenience
 
     windowSize();
-    window.onresize = windowSize;
+    window.addEventListener('onresize', windowSize);
+    window.addEventListener('popstate', function(e) {
+        console.log('popstate fired: ' + e.state);
+        if (e.state)
+            loadLocation(e.state, false);
+    });
+
     document.loadLocation = loadLocation;
 
     var thumbnailsElement = document.getElementById('thumbnails');
@@ -141,14 +147,17 @@ document.addEventListener('DOMContentLoaded', function () {
     var pswpElement = document.getElementById('pswp');
     var pswp;
 
-    loadQuery('{{ query }}');
+    var query = '{{ request.script_root }}{{ query }}';
+    if (history && history.replaceState)
+        history.replaceState(query, query);
+    loadQuery(query);
 
     function onLayout() {
         console.log('layout done');
     }
 
     function addThumbnail(image) {
-        image.thumbnail = '{{ request.script_root|default('/') }}/thumbnail/' + image.id;
+        image.thumbnail = '{{ request.script_root }}/thumbnail/' + image.id;
         // pswp options
         image.w = image.width;
         image.h = image.height;
@@ -182,10 +191,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function loadQuery(query) {
         if (query.indexOf('?') < 0)
-            query = query + '?';
+            query = query + '?action=list';
         else
-            query = query + ';';
-        query = '{{ request.script_root }}' + query + 'action=list';
+            query = query + ';action=list';
         console.log("Query: " + query);
         var xhr = new XMLHttpRequest();
         xhr.open('GET', query, true);
@@ -217,15 +225,14 @@ document.addEventListener('DOMContentLoaded', function () {
         xhr.send();
     }
 
-    function loadLocation(newLocation) {
-        // fixme: history (back) does not work
-        if (history && history.pushState)
+    function loadLocation(newLocation, addHistory) {
+        if (addHistory && history && history.pushState)
             history.pushState(newLocation, newLocation, newLocation);
-        newLocation = newLocation.replace('/{{ request.script_root }}', '');
         loadQuery(newLocation);
     }
 
     function windowSize() {
+        console.log("windowSize");
         // Get media variant from CSS
         var afterElement = window.getComputedStyle ? window.getComputedStyle(document.body, ':after') : false;
         var after = afterElement.getPropertyValue('content').replace(/^["']|["']$/g, '');
@@ -305,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!image.info) {
                 image.info = true;
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', '{{ request.script_root|default('/') }}/info/' + image.id, true);
+                xhr.open('GET', '{{ request.script_root }}/info/' + image.id, true);
                 xhr.responseType = 'json';
                 xhr.onload = function (e) {
                     if (xhr.readyState === 4) {
@@ -318,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             var labels = [];
                             for (var i in image.labels) {
                                 //noinspection JSUnresolvedVariable
-                                labels.push('<a onclick="loadLocation(\'{{ request.script_root }}/?-filt.labels=' + image.labels[i].id + '\')" class="label">' + image.labels[i].name + '</a>');
+                                labels.push('<a onclick="loadLocation(\'{{ request.script_root }}/?-filt.labels=' + image.labels[i].id + '\', true)" class="label">' + image.labels[i].name + '</a>');
                             }
                             var expanded = false;
                             if (labels.length > 0) {
