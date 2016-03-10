@@ -47,6 +47,11 @@ def galleria(path_info):
         image_format = request.args.get('format', None)
         if image_format == 'original':
             response = original(image_path)
+        elif image_format == 'thumbnail':
+            # helper method for manually linking to thumbnails
+            image = GalleriaImage.frompath(image_path)
+            image.fetch_data()
+            response = thumbnail(image.id)
         else:
             response = view(image_path, image_format)
     elif action == 'list':

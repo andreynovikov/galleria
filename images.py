@@ -73,6 +73,7 @@ class GalleriaImage(object):
 
     @classmethod
     def fromid(cls, image_id):
+        current_app.logger.debug(image_id)
         assert type(image_id) is int, "id is not an integer: %r" % image_id
         _object = cls({'id': image_id})
         return _object
@@ -117,8 +118,15 @@ class GalleriaImage(object):
         # do not fetch twice
         if hasattr(self, 'ctime'):
             return
-        assert hasattr(self, 'id'), "id must be set before fetching data"
-        data = db.fetch("SELECT * FROM " + db.tbl_image + " WHERE id=%s", [self.id], one=True)
+        if hasattr(self, 'id'):
+            # initialized by id
+            data = db.fetch("SELECT * FROM " + db.tbl_image + " WHERE id=%s", [self.id], one=True)
+        else:
+            # initialized by path
+            bundle = os.path.dirname(self.path)
+            name = os.path.basename(self.path)
+            bundle = bundle.replace(config.ROOT_DIR, '')
+            data = db.fetch("SELECT * FROM " + db.tbl_image + " WHERE bundle=%s AND name=%s", [bundle, name], one=True)
         for k, v in data.items():
             setattr(self, k, v)
 
