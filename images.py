@@ -13,6 +13,7 @@ import config
 EXIF_DATE_TIME_ORIGINAL = 36867
 EXIF_DATE_TIME_DIGITIZED = 36868
 
+IPTC_OBJECT_NAME = (2, 5)
 IPTC_KEYWORDS = (2, 25)
 IPTC_DATE_CREATED = (2, 55)
 IPTC_TIME_CREATED = (2, 60)
@@ -21,7 +22,7 @@ IPTC_BYLINE = (2, 80)
 iptc_tags = {
     (1, 90): 'CodedCharacterSet',
     (2, 0): 'RecordVersion',
-    (2, 5): 'ObjectName',  # title
+    IPTC_OBJECT_NAME: 'ObjectName',  # title
     IPTC_KEYWORDS: 'Keywords',
     IPTC_DATE_CREATED: 'DateCreated',
     IPTC_TIME_CREATED: 'TimeCreated',
@@ -211,6 +212,7 @@ class GalleriaImage(object):
             count = db.fetch("SELECT COUNT(image) FROM label_image WHERE label=%s", [label], one=True, as_list=True)
             if not count:
                 db.execute("DELETE FROM " + db.tbl_label + " WHERE id=%s", [label])
+        db.commit()
         return labels
 
     def update_metadata(self):
@@ -219,8 +221,11 @@ class GalleriaImage(object):
         iptc_info = IptcImagePlugin.getiptcinfo(self.image) or {}
         exif_info = self.image._getexif() or {}
 
-        timestamp = None
+        title = None
+        if IPTC_OBJECT_NAME in iptc_info:
+            title = iptc_info[IPTC_OBJECT_NAME].decode('utf-8')
 
+        timestamp = None
         if IPTC_DATE_CREATED in iptc_info and IPTC_TIME_CREATED in iptc_info:
             timestamp_str = iptc_info[IPTC_DATE_CREATED].decode('utf-8') + iptc_info[IPTC_TIME_CREATED].decode('utf-8')
             timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S')
@@ -240,8 +245,8 @@ class GalleriaImage(object):
                 labels.append(iptc_info[IPTC_KEYWORDS].decode('utf-8'))
             self.set_labels(labels)
 
-        db.execute("UPDATE " + db.tbl_image + " SET width=%s, height=%s, stime=%s WHERE id=%s",
-                   [self.image.width, self.image.height, timestamp, self.id])
+        db.execute("UPDATE " + db.tbl_image + " SET description=%s, width=%s, height=%s, stime=%s WHERE id=%s",
+                   [title, self.image.width, self.image.height, timestamp, self.id])
         db.commit()
 
     def make_thumbnail(self, size='m', force=False):
