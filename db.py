@@ -1,7 +1,7 @@
 import psycopg2
 import psycopg2.extras
 
-from flask import g
+from flask import g, current_app
 
 import config
 
@@ -11,12 +11,18 @@ tbl_image_log = config.DB_TABLE_PREFIX + 'image_log'
 tbl_image_rating = config.DB_TABLE_PREFIX + 'image_rating'
 tbl_image_referrer = config.DB_TABLE_PREFIX + 'image_referrer'
 tbl_label = config.DB_TABLE_PREFIX + 'label'
+tbl_author = config.DB_TABLE_PREFIX + 'author'
 
 
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = psycopg2.connect(config.DB_CONNECTION_DSN)
+        if current_app.debug:
+            db = psycopg2.connect(config.DB_CONNECTION_DSN, connection_factory=psycopg2.extras.LoggingConnection)
+            db.initialize(current_app.logger)
+        else:
+            db = psycopg2.connect(config.DB_CONNECTION_DSN)
+        g._database = db
     return db
 
 

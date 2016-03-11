@@ -74,7 +74,6 @@ class GalleriaImage(object):
 
     @classmethod
     def fromid(cls, image_id):
-        current_app.logger.debug(image_id)
         assert type(image_id) is int, "id is not an integer: %r" % image_id
         _object = cls({'id': image_id})
         return _object
@@ -111,7 +110,7 @@ class GalleriaImage(object):
         db.execute("DELETE FROM " + db.tbl_image + " WHERE id=%s", [self.id])
         db.commit()
         if not keep_file:
-            # TODO: add file deletion
+            # TODO: add file deletion, check existence as it can be deleted postfactum
             pass
 
     # noinspection SqlResolve
@@ -164,6 +163,11 @@ class GalleriaImage(object):
         # rating = cursor.fetchone()
         # if rating != None:
         #    image['rating'] = rating
+
+        # get author name
+        if self.author:
+            self.author_name = db.fetch("SELECT name FROM " + db.tbl_author + " WHERE id=%s", [self.author], one=True,
+                                        as_list=True)
 
         # get labels
         labels = db.fetch(
@@ -221,9 +225,13 @@ class GalleriaImage(object):
         iptc_info = IptcImagePlugin.getiptcinfo(self.image) or {}
         exif_info = self.image._getexif() or {}
 
-        title = None
+        fields = []
+        values = []
+
         if IPTC_OBJECT_NAME in iptc_info:
             title = iptc_info[IPTC_OBJECT_NAME].decode('utf-8')
+            fields.append("description")
+            values.append(title)
 
         timestamp = None
         if IPTC_DATE_CREATED in iptc_info and IPTC_TIME_CREATED in iptc_info:
@@ -235,6 +243,19 @@ class GalleriaImage(object):
         elif EXIF_DATE_TIME_DIGITIZED in exif_info:
             timestamp_str = exif_info[EXIF_DATE_TIME_DIGITIZED]
             timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S')
+        if timestamp:
+            fields.append("stime")
+            values.append(timestamp)
+
+        if IPTC_BYLINE in iptc_info:
+            author_name = iptc_info[IPTC_BYLINE].decode('utf-8')
+            author_id = db.fetch("SELECT id FROM " + db.tbl_author + " WHERE name=%s", [author_name], one=True,
+                                 as_list=True)
+            if not author_id:
+                author_id = db.execute("INSERT INTO " + db.tbl_author + "(name) VALUES (%s) RETURNING id",
+                                       [author_name])
+            fields.append("author")
+            values.append(author_id)
 
         if IPTC_KEYWORDS in iptc_info:
             labels = []
@@ -245,9 +266,16 @@ class GalleriaImage(object):
                 labels.append(iptc_info[IPTC_KEYWORDS].decode('utf-8'))
             self.set_labels(labels)
 
-        db.execute("UPDATE " + db.tbl_image + " SET description=%s, width=%s, height=%s, stime=%s WHERE id=%s",
-                   [title, self.image.width, self.image.height, timestamp, self.id])
-        db.commit()
+        fields.append("width")
+        values.append(self.image.width)
+        fields.append("height")
+        values.append(self.image.height)
+
+        if fields:
+            values.append(self.id)
+            fields_str = ", ".join(map(lambda x: "%s=%%s" % x, fields))
+            db.execute("UPDATE " + db.tbl_image + " SET " + fields_str + " WHERE id=%s", values)
+            db.commit()
 
     def make_thumbnail(self, size='m', force=False):
         self.ensure_path()

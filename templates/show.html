@@ -54,15 +54,22 @@
 	        transition: all 700ms;
         }
 
-        .pswp__labels, .pswp__exif {
+        .pswp__caption__center {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .pswp__labels, .pswp__author, .pswp__exif {
             font-size: 80%;
         }
 
-        .pswp__labels:before, .pswp__exif:before {
-            content: '\2014 ';
+        .pswp__labels:before, .pswp__author:before, .pswp__exif:before {
+            content: '\2237';
             padding: 0 0.5em;
         }
-
         .pswp__labels a {
             cursor: pointer;
             color: #55ACEE;
@@ -100,7 +107,8 @@
             .thumbnail {
                 width: {{ config.THUMBNAIL_WIDTH.s }}px;
             }
-            .pswp__exif {
+
+            .pswp__author, .pswp__exif {
                 display: none;
             }
         }
@@ -331,6 +339,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             if (labels.length > 0) {
                                 image.title += '<span class="pswp__labels">' + labels.join(', ') + '</span>';
                                 expanded = true;
+                            }
+                            if (image.author_name) {
+                                image.title += '<span class="pswp__author">' + image.author_name + '</span>';
                             }
                             if (image.exif) {
                                 var fln = image.exif.FocalLength[0] / image.exif.FocalLength[1];
