@@ -44,6 +44,8 @@ def sync_bundle(path, bundle, should_update_metadata=False):
     images = db.fetch("SELECT id, name FROM " + db.tbl_image + " WHERE bundle=%s", [bundle])
     ids = {}
     for image in images:
+        if image['name'] not in items:
+            items[image['name']] = 0
         if items[image['name']] == 3:
             # Remove duplicates
             im = GalleriaImage.fromid(image['id'])
@@ -59,7 +61,7 @@ def sync_bundle(path, bundle, should_update_metadata=False):
         # Image is in the database but not in the directory
         elif items[name] == 1:
             image = GalleriaImage.fromid(ids[name])
-            image.remove()
+            image.delete()
         # Image is in sync, update metadata if requested
         elif should_update_metadata:
             image = GalleriaImage.fromid(ids[name])
@@ -103,9 +105,9 @@ class GalleriaImage(object):
 
     # noinspection SqlResolve
     def delete(self, keep_file=False):
-        db.execute("DELETE FROM " + db.tbl_image_log + " WHERE image=%s", [self.id])
-        db.execute("DELETE FROM " + db.tbl_image_rating + " WHERE image=%s", [self.id])
-        db.execute("DELETE FROM " + db.tbl_image_referrer + " WHERE image=%s", [self.id])
+        # db.execute("DELETE FROM " + db.tbl_image_log + " WHERE image=%s", [self.id])
+        # db.execute("DELETE FROM " + db.tbl_image_rating + " WHERE image=%s", [self.id])
+        # db.execute("DELETE FROM " + db.tbl_image_referrer + " WHERE image=%s", [self.id])
         db.execute("DELETE FROM " + db.tbl_image_label + " WHERE image=%s", [self.id])
         db.execute("DELETE FROM " + db.tbl_image + " WHERE id=%s", [self.id])
         db.commit()
