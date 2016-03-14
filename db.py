@@ -7,12 +7,17 @@ import config
 
 tbl_image = config.DB_TABLE_PREFIX + 'image'
 tbl_image_label = config.DB_TABLE_PREFIX + 'label_image'
-tbl_image_log = config.DB_TABLE_PREFIX + 'image_log'
+tbl_image_log = config.DB_TABLE_PREFIX + 'log'
 tbl_image_rating = config.DB_TABLE_PREFIX + 'image_rating'
 tbl_image_referrer = config.DB_TABLE_PREFIX + 'image_referrer'
 tbl_label = config.DB_TABLE_PREFIX + 'label'
 tbl_author = config.DB_TABLE_PREFIX + 'author'
 
+LOG_STATUS_ORIGINAL = 0
+LOG_STATUS_VIEW = 1
+LOG_STATUS_INFO = 2
+LOG_STATUS_EXPORT = 3
+LOG_STATUS_THUMBNAIL = 4
 
 def get_db():
     db = getattr(g, '_database', None)

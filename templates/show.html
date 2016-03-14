@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     while (elements[0]) {
                         elements[0].parentNode.removeChild(elements[0]);
                     }
-                    var images = e.target.response;
+                    var images = e.target.response.images;
                     for (var i=0; i < images.length; i++)
                         addThumbnail(images[i]);
                     masonry.reloadItems();
@@ -234,8 +234,10 @@ document.addEventListener('DOMContentLoaded', function () {
     function loadLocation(newLocation, addHistory) {
         if (addHistory && history && history.pushState) {
             history.pushState(newLocation, newLocation, newLocation);
-            if (ga)
+            {% if config.GOOGLE_ANALYTICS %}
+                if (typeof ga != "undefined")
                 ga('send', 'event', 'Gallery', 'show', newLocation);
+            {% endif %}
         }
         loadQuery(newLocation);
     }
@@ -316,6 +318,13 @@ document.addEventListener('DOMContentLoaded', function () {
         // Pass data to PhotoSwipe and initialize it
         pswp = new PhotoSwipe(pswpElement, PhotoSwipeUI_Default, thumbnails, options);
 
+        pswp.listen('afterChange', function () {
+            console.log(pswp.currItem.path);
+            {% if config.GOOGLE_ANALYTICS %}
+                if (typeof ga != "undefined")
+                    ga('send', 'event', 'Gallery', 'view', pswp.currItem.path);
+            {% endif %}
+        });
         pswp.listen('gettingData', function (index, image) {
             if (!image.info) {
                 image.info = true;

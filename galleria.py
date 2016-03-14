@@ -1,12 +1,12 @@
 import os
 import io
 import magic
-import simplejson as json
 from PIL import Image
 
-from flask import Flask, Response, request, render_template, send_file, abort
+from flask import Flask, request, render_template, send_file, abort, jsonify
 
 from images import sync_bundle, GalleriaImage
+from util import ip2int
 import db
 import config
 
@@ -92,7 +92,7 @@ def teardown_request(exception):
 @app.after_request
 def after_request(response):
     # TODO: Make configurable
-    response.headers.add('Access-Control-Allow-Origin', 'http://andreynovikov.info')
+    response.headers.add('Access-Control-Allow-Origin', 'https://andreynovikov.info')
     return response
 
 
@@ -187,14 +187,16 @@ def select(bundle):
     for image in images:
         image['path'] = ''.join([request.script_root, image['bundle'], '/', image['name']])
 
-    response = Response(response=json.dumps(images, indent=4, ensure_ascii=False),
-                        status=200, mimetype='application/json; charset=utf-8')
-    return response
+    return jsonify(images=images)
+    # response = Response(response=json.dumps(images, indent=4, ensure_ascii=False),
+    #                     status=200, mimetype='application/json; charset=utf-8')
+    # return response
 
 
 def view(image_path, image_format):
     export = image_format == 'export'
     image = GalleriaImage.frompath(image_path)
+    image.fetch_data()
     image.open()
 
     fmt = image.image.format
@@ -206,6 +208,9 @@ def view(image_path, image_format):
     if export:
         rx = config.EXPORT_MAX_WIDTH
         ry = config.EXPORT_MAX_HEIGHT
+        log(request, image.id, db.LOG_STATUS_EXPORT)
+    else:
+        log(request, image.id, db.LOG_STATUS_VIEW)
 
     nx = rx
     ny = ry
@@ -240,6 +245,9 @@ def view(image_path, image_format):
 
 
 def original(image_path):
+    image = GalleriaImage.frompath(image_path)
+    image.fetch_data()
+    log(request, image.id, db.LOG_STATUS_ORIGINAL)
     mime_type = magic.from_file(image_path, mime=True).decode('utf-8')
     # cache for one month
     response = send_file(image_path, mimetype=mime_type, cache_timeout=2592000,
@@ -257,7 +265,7 @@ def thumbnail(image_id):
     image = GalleriaImage.fromid(image_id)
     thumbnail_path = image.make_thumbnail(size, force)
 
-    # add_log(request, db, image_id, 4)
+    log(request, image_id, db.LOG_STATUS_THUMBNAIL)
 
     mime_type = magic.from_file(thumbnail_path, mime=True).decode('utf-8')
     # cache for one month
@@ -272,10 +280,17 @@ def thumbnail(image_id):
 def info(image_id):
     image = GalleriaImage.fromid(image_id)
     image.expand()
-    # add_log(request, db, imageId, 5)
-    response = Response(response=json.dumps(image.get_data(request.script_root), indent=4, ensure_ascii=False),
-                        status=200, mimetype='application/json; charset=utf-8')
-    return response
+    log(request, image_id, db.LOG_STATUS_INFO)
+    return jsonify(image.get_data(request.script_root))
+    # response = Response(response=json.dumps(image.get_data(request.script_root), indent=4, ensure_ascii=False),
+    #                     status=200, mimetype='application/json; charset=utf-8')
+    # return response
+
+
+def log(request, image_id, status):
+    user_id = ip2int(request.remote_addr)
+    db.execute("INSERT INTO " + db.tbl_image_log + " VALUES(%s, %s, %s, NOW())", (image_id, user_id, status))
+    db.commit()
 
 
 if __name__ == '__main__':
