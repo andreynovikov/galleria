@@ -34,6 +34,21 @@ iptc_tags = {
 
 
 # noinspection SqlResolve
+def check_bundle(bundle):
+    """
+    Checks if bundle is mentioned in database and deletes curresponding images
+
+    :param bundle: bundle path
+    """
+    images = db.fetch("SELECT id FROM " + db.tbl_image + " WHERE bundle=%s", [bundle])
+    if not images:
+        return
+    for image in images:
+        im = GalleriaImage.fromid(image['id'])
+        im.delete()
+
+
+# noinspection SqlResolve
 def sync_bundle(path, bundle, should_update_metadata=False):
     current_app.logger.debug("Path: %s Bundle: %s" % (path, bundle))
     # List files in directory

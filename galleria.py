@@ -5,7 +5,7 @@ from PIL import Image
 
 from flask import Flask, request, render_template, send_file, redirect, abort, jsonify, url_for
 
-from images import sync_bundle, get_related_labels, GalleriaImage
+from images import sync_bundle, check_bundle, get_related_labels, GalleriaImage
 from util import to_list, ip2int
 import db
 import config
@@ -41,6 +41,7 @@ def galleria(path_info):
         elif os.path.isdir(path):
             bundle_path = '/' + path_info
         else:
+            check_bundle('/' + path_info)
             abort(404)
 
     action = request.args.get('action', None)
