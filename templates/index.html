@@ -95,7 +95,7 @@
     <h2>Labels:</h2>
     {% set related_ids = related_labels|map(attribute='id')|list %}
     {% set max_count = labels|map(attribute='count')|sort|last %}
-    {% set of = max_count / 5 %}
+    {% set of = max_count / 5 /  config.LABEL_COUNT_INHOMOGENEITY_FACTOR %}
     <ul class="labels">
         {% for label in labels %}
             {% if label.count < of %}
