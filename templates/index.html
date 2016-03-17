@@ -3,7 +3,8 @@
 {% block head_extra %}
     <!--suppress CssUnusedSymbol -->
     <style>
-        #bundles, #filter { display: inline-block; padding: 0 20px; vertical-align: top; }
+        body { display: flex }
+        #bundles, #filter { padding: 0 20px }
         #bundles ul {
             list-style: none;
             margin: 0;
@@ -69,6 +70,13 @@
 
         form {
             margin-top: 20px
+        }
+
+        /* Mobile */
+        @media screen and (max-width: 736px) {
+            body { flex-direction: column }
+            #filter { order: 1; border: none }
+            #bundles { order: 2; }
         }
     </style>
 {% endblock %}
