@@ -78,11 +78,7 @@
                 {% set half = (label.name|length / 2 + 0.9)|int %}
                 {% set plus = label.name[:half] %}
                 {% set minus = label.name[half:] %}
-                <li class="label related"><a class="pls" href="?labels=
-                        {{ current_labels|join(',') }}{{ ',' if current_labels else '' }}{{ label.id }};notlabels={{ current_not_labels|join(',') }}">+{{ plus }}</a><a
-                        class="min" href="?labels={{ current_labels|join(',') }};notlabels=
-                        {{ current_not_labels|join(',') }}{{ ',' if current_not_labels else '' }}{{ label.id }}">{{ minus }}-</a>
-                </li>
+                <li class="label related"><a class="pls" href="?labels={{ current_labels|join(',') }}{{ ',' if current_labels else '' }}{{ label.id }};notlabels={{ current_not_labels|join(',') }}">+{{ plus }}</a><a class="min" href="?labels={{ current_labels|join(',') }};notlabels={{ current_not_labels|join(',') }}{{ ',' if current_not_labels else '' }}{{ label.id }}">{{ minus }}-</a></li>
             {% endfor %}
         </ul>
     {% endif %}
