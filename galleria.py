@@ -40,7 +40,7 @@ def galleria(path_info):
             image_path = path
         elif os.path.isdir(path):
             bundle_path = '/' + path_info
-        elif path_info:
+        else:
             abort(404)
 
     action = request.args.get('action', None)
@@ -267,7 +267,7 @@ def original(image_path):
 # noinspection SqlResolve
 @app.route('/index')
 def index():
-    bundles = db.fetch("SELECT bundle AS path, COUNT(id) AS count FROM " + db.tbl_image + " GROUP BY bundle")
+    bundles = db.fetch("SELECT bundle AS path, COUNT(id) AS count FROM " + db.tbl_image + " GROUP BY bundle ORDER BY path")
     current_labels = to_list(request.args.get('labels', None))
     current_not_labels = to_list(request.args.get('notlabels', None))
     related_labels = get_related_labels(current_labels, current_not_labels)

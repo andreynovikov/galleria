@@ -3,6 +3,9 @@
 {% block head_extra %}
     <!--suppress CssUnusedSymbol -->
     <style>
+        #bundles { float: left; margin-right: 50px; padding-right: 10px; border-right: 2px solid #DDDDDD }
+        #bundles > h2 { margin-top: 0 }
+
         .tag-0 {
             font-size: 130%
         }
@@ -65,12 +68,14 @@
     </style>
 {% endblock %}
 {% block content %}
-    <h2>Bundles:</h2>
-    <ul>
-        {% for bundle in bundles %}
-            <li><a href="{{ request.script_root }}{{ bundle.path }}">{{ bundle.path }}</a> ({{ bundle.count }})</li>
-        {% endfor %}
-    </ul>
+    <div id="bundles">
+        <h2>Bundles:</h2>
+        <ul>
+            {% for bundle in bundles %}
+                <li><a href="{{ request.script_root }}{{ bundle.path }}">{{ bundle.path }}</a> ({{ bundle.count }})</li>
+            {% endfor %}
+        </ul>
+    </div>
     {% if related_labels %}
         <h2>Related Labels:</h2>
         <ul class="labels">
