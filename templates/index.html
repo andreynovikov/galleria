@@ -3,13 +3,13 @@
 {% block head_extra %}
     <!--suppress CssUnusedSymbol -->
     <style>
-        #bundles { float: left; margin-right: 50px; padding-right: 20px; border-right: 2px solid #DDDDDD }
-        #bundles > h2 { margin-top: 0 }
+        #bundles, #filter { display: inline-block; padding: 0 20px; vertical-align: top; }
         #bundles ul {
             list-style: none;
             margin: 0;
             padding: 0;
         }
+        #filter { border-left: 2px solid #DDDDDD }
 
         .tag-0 {
             font-size: 130%
@@ -80,54 +80,56 @@
                 <li><a href="{{ request.script_root }}{{ bundle.path }}">{{ bundle.path }}</a> ({{ bundle.count }})</li>
             {% endfor %}
         </ul>
-    </div>
+    </div><!-- No Spaces
+ --><div id="filter">
     {% if related_labels %}
-        <h2>Related Labels:</h2>
+            <h2>Related Labels:</h2>
+            <ul class="labels">
+                {% for label in related_labels %}
+                    {% set half = (label.name|length / 2 + 0.9)|int %}
+                    {% set plus = label.name[:half] %}
+                    {% set minus = label.name[half:] %}
+                    <li class="label related"><a class="pls" href="?labels={{ current_labels|join(',') }}{{ ',' if current_labels else '' }}{{ label.id }};notlabels={{ current_not_labels|join(',') }}">+{{ plus }}</a><a class="min" href="?labels={{ current_labels|join(',') }};notlabels={{ current_not_labels|join(',') }}{{ ',' if current_not_labels else '' }}{{ label.id }}">{{ minus }}-</a></li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        <h2>Labels:</h2>
+        {% set related_ids = related_labels|map(attribute='id')|list %}
+        {% set max_count = labels|map(attribute='count')|sort|last %}
+        {% set of = max_count / 5 /  config.LABEL_COUNT_INHOMOGENEITY_FACTOR %}
         <ul class="labels">
-            {% for label in related_labels %}
-                {% set half = (label.name|length / 2 + 0.9)|int %}
-                {% set plus = label.name[:half] %}
-                {% set minus = label.name[half:] %}
-                <li class="label related"><a class="pls" href="?labels={{ current_labels|join(',') }}{{ ',' if current_labels else '' }}{{ label.id }};notlabels={{ current_not_labels|join(',') }}">+{{ plus }}</a><a class="min" href="?labels={{ current_labels|join(',') }};notlabels={{ current_not_labels|join(',') }}{{ ',' if current_not_labels else '' }}{{ label.id }}">{{ minus }}-</a></li>
+            {% for label in labels %}
+                {% if label.count < of %}
+                    {% set class = 'tag-4' %}
+                {% elif label.count < of * 2 %}
+                    {% set class = 'tag-3' %}
+                {% elif label.count < of * 3 %}
+                    {% set class = 'tag-2' %}
+                {% elif label.count < of * 4 %}
+                    {% set class = 'tag-1' %}
+                {% else %}
+                    {% set class = 'tag-0' %}
+                {% endif %}
+                {% set url = 'labels=' + label.id|string %}
+                {% if label.id in related_ids %}
+                    {% set class = class + ' rel' %}
+                    {% set url = 'labels=' + current_labels|join(',') + (',' if current_labels else '') + label.id|string + ';notlabels=' + current_not_labels|join(',') %}
+                {% endif %}
+                {% if label.id|string in current_labels %}
+                    {% set class = class + ' cur' %}
+                    {% set url = 'labels=' + current_labels|reject('equalto',label.id|string)|list|join(',') + ';notlabels=' + current_not_labels|join(',') %}
+                {% endif %}
+                {% if label.id|string in current_not_labels %}
+                    {% set class = class + ' cur not' %}
+                    {% set url = 'labels=' + current_labels|join(',') + ';notlabels=' + current_not_labels|reject('equalto',label.id|string)|list|join(',') %}
+                {% endif %}
+                <li><a class="{{ class }}" href="?{{ url }}" title="{{ label.count }}">{{ label.name }}</a></li>
             {% endfor %}
         </ul>
-    {% endif %}
-    <h2>Labels:</h2>
-    {% set related_ids = related_labels|map(attribute='id')|list %}
-    {% set max_count = labels|map(attribute='count')|sort|last %}
-    {% set of = max_count / 5 /  config.LABEL_COUNT_INHOMOGENEITY_FACTOR %}
-    <ul class="labels">
-        {% for label in labels %}
-            {% if label.count < of %}
-                {% set class = 'tag-4' %}
-            {% elif label.count < of * 2 %}
-                {% set class = 'tag-3' %}
-            {% elif label.count < of * 3 %}
-                {% set class = 'tag-2' %}
-            {% elif label.count < of * 4 %}
-                {% set class = 'tag-1' %}
-            {% else %}
-                {% set class = 'tag-0' %}
-            {% endif %}
-            {% set url = 'labels=' + label.id|string %}
-            {% if label.id in related_ids %}
-                {% set class = class + ' rel' %}
-                {% set url = 'labels=' + current_labels|join(',') + (',' if current_labels else '') + label.id|string + ';notlabels=' + current_not_labels|join(',') %}
-            {% endif %}
-            {% if label.id|string in current_labels %}
-                {% set class = class + ' cur' %}
-                {% set url = 'labels=' + current_labels|reject('equalto',label.id|string)|list|join(',') + ';notlabels=' + current_not_labels|join(',') %}
-            {% endif %}
-            {% if label.id|string in current_not_labels %}
-                {% set class = class + ' cur not' %}
-                {% set url = 'labels=' + current_labels|join(',') + ';notlabels=' + current_not_labels|reject('equalto',label.id|string)|list|join(',') %}
-            {% endif %}
-            <li><a class="{{ class }}" href="?{{ url }}" title="{{ label.count }}">{{ label.name }}</a></li>
-        {% endfor %}
-    </ul>
-    <form action="{{ request.script_root }}/">
-        <input type="hidden" name="-filt.labels" value="{{ current_labels|join(',') }}"/>
-        <input type="hidden" name="-filt.notlabels" value="{{ current_not_labels|join(',') }}"/>
-        <input type="submit" value="Show"/>
-    </form>
+        <form action="{{ request.script_root }}/">
+            <input type="hidden" name="-filt.labels" value="{{ current_labels|join(',') }}"/>
+            <input type="hidden" name="-filt.notlabels" value="{{ current_not_labels|join(',') }}"/>
+            <input type="submit" value="Show"/>
+        </form>
+    </div>
 {% endblock %}
