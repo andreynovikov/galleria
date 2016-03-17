@@ -3,10 +3,10 @@ import io
 import magic
 from PIL import Image
 
-from flask import Flask, request, render_template, send_file, abort, jsonify
+from flask import Flask, request, render_template, send_file, redirect, abort, jsonify, url_for
 
-from images import sync_bundle, GalleriaImage
-from util import ip2int
+from images import sync_bundle, get_related_labels, GalleriaImage
+from util import to_list, ip2int
 import db
 import config
 
@@ -24,6 +24,8 @@ class QueryStringRedirectMiddleware(object):
 app = Flask(__name__)
 app.debug = True
 app.wsgi_app = QueryStringRedirectMiddleware(app.wsgi_app)
+app.jinja_env.lstrip_blocks = True
+app.jinja_env.trim_blocks = True
 
 
 @app.route('/', defaults={'path_info': None})
@@ -66,9 +68,9 @@ def galleria(path_info):
             query = '/'
         if query_string:
             query = query + '?' + query_string
-        response = render_template('show.html', request=request, config=config, query=query)
+        response = render_template('show.html', config=config, query=query)
     else:
-        response = render_template('index.html', request=request, config=config)
+        response = redirect(url_for('index'))
 
     """
     elif action == 'log':
@@ -104,6 +106,11 @@ def page_not_found(e):
 @app.errorhandler(413)
 def bad_query(error):
     return 'Query should be more specific', error
+
+
+@app.template_test()
+def equalto(value, other):
+    return value == other
 
 
 def select(bundle):
@@ -255,6 +262,20 @@ def original(image_path):
     response.content_length = os.path.getsize(image_path)
     response.last_modified = os.path.getmtime(image_path)
     return response
+
+
+# noinspection SqlResolve
+@app.route('/index')
+def index():
+    bundles = db.fetch("SELECT bundle AS path, COUNT(id) AS count FROM " + db.tbl_image + " GROUP BY bundle")
+    current_labels = to_list(request.args.get('labels', None))
+    current_not_labels = to_list(request.args.get('notlabels', None))
+    related_labels = get_related_labels(current_labels, current_not_labels)
+    labels = db.fetch("SELECT id, name, COUNT(image) AS count FROM " + db.tbl_label + " INNER JOIN " +
+                      db.tbl_image_label + " ON (label = id) GROUP BY id ORDER BY name ASC")
+    return render_template('index.html', config=config, bundles=bundles, labels=labels,
+                           current_labels=current_labels, current_not_labels=current_not_labels,
+                           related_labels=related_labels)
 
 
 @app.route('/thumbnail/<int:image_id>')

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+    <title>{% block title %}{% endblock %}</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700|Open+Sans+Condensed:300,700");
+
+        body {
+            font-family: "Open Sans", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+{% block content %}{% endblock %}
+{% if config.GOOGLE_ANALYTICS %}
+    <!-- Google Analytics -->
+    <script>
+        window.ga = window.ga || function () {
+                    (ga.q = ga.q || []).push(arguments)
+                };
+        ga.l = +new Date;
+        ga('create', '{{config.GOOGLE_ANALYTICS}}', 'auto');
+        ga('send', 'event', 'Gallery', 'show', '{{ request.script_root }}{{ query }}');
+    </script>
+    <script async src='//www.google-analytics.com/analytics.js'></script>
+    <!-- End Google Analytics -->
+{% endif %}
+</body>
+</html>

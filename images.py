@@ -68,6 +68,33 @@ def sync_bundle(path, bundle, should_update_metadata=False):
             image.update_metadata()
 
 
+def get_related_labels(labels, not_labels, unlimited=True):
+    current_app.logger.debug(labels)
+    if not labels and not not_labels:
+        return []
+
+    limit = '' if unlimited else ' LIMIT 20'
+    sql_in = ','.join(labels + not_labels)
+
+    having = []
+    if labels:
+        having.extend(map(lambda x: 'SUM(CASE WHEN label=%s THEN 1 ELSE 0 END) > 0' % x, labels))
+    if not_labels:
+        having.extend(map(lambda x: 'SUM(CASE WHEN label=%s THEN 1 ELSE 0 END) = 0' % x, not_labels))
+    having = ' AND '.join(having)
+
+    db.execute("CREATE TEMPORARY TABLE matches (image INTEGER NOT NULL PRIMARY KEY)")
+    db.execute("INSERT INTO matches SELECT image FROM " + db.tbl_image_label + " GROUP BY image HAVING " + having)
+
+    related = db.fetch("SELECT id, name, COUNT(A.image) AS count FROM matches INNER JOIN " +
+                       db.tbl_image_label + " A ON matches.image=A.image INNER JOIN " +
+                       db.tbl_label + " ON (A.label = id) WHERE A.label NOT IN (" + sql_in +
+                       ") GROUP BY id HAVING COUNT(A.image) > 0 ORDER BY count DESC, name ASC" + limit)
+    db.execute("DROP TABLE matches")
+    db.commit()
+    return related
+
+
 # noinspection PyUnresolvedReferences
 class GalleriaImage(object):
     def __init__(self, dictionary):

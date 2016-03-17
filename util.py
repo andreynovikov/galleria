@@ -14,6 +14,10 @@ def diff(a, b):
     return [aa for aa in a if aa not in b]
 
 
+def to_list(str):
+    return str.split(',') if str else []
+
+
 def ip2int(addr):
     return struct.unpack("!I", socket.inet_aton(addr))[0]
 
