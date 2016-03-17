@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import magic
 from PIL import Image
 
@@ -35,8 +36,14 @@ def galleria(path_info):
     image_path = None
 
     if path_info:
+        # normalize path_info
+        path_info = path_info.rstrip('/')
+        path_info = re.sub('/+\.*', '/', path_info)
+        # select target and action
         path = '/'.join([config.ROOT_DIR, path_info])
-        if os.path.isfile(path):
+        if '/thumbs' in path_info:
+            abort(403)
+        elif os.path.isfile(path):
             image_path = path
         elif os.path.isdir(path):
             bundle_path = '/' + path_info
