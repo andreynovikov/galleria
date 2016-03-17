@@ -12,6 +12,7 @@ Galleria is a lightweight photo gallery application written in Python. The main 
 ## Examples
 
 * [Entrance page with selection by label](https://andreynovikov.info/photos/index)
+* [Another entrance page with huge number of labels and bundles](https://andreynovikov.info/gallery/index)
 * [Huge bundle with hundreds of photos](https://andreynovikov.info/photos/travel/Georgia/2015)
 * [Bundle filtered by shooting time](https://andreynovikov.info/photos/travel/Georgia/2015?-filt.from=2015-06-25;-filt.till=2015-06-26)
 * [All photos filtered by label](https://andreynovikov.info/photos/?-filt.labels=1)
