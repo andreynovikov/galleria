@@ -63,7 +63,8 @@ def galleria(path_info):
             image.fetch_data()
             response = thumbnail(image.id)
         else:
-            response = view(image_path, image_format)
+            ratio = float(request.args.get('ratio', '1.0'))
+            response = view(image_path, image_format, ratio)
     elif action == 'list':
         response = select(bundle_path)
     elif action is not None:
@@ -208,7 +209,7 @@ def select(bundle):
     # return response
 
 
-def view(image_path, image_format):
+def view(image_path, image_format, ratio=1.0):
     export = image_format == 'export'
     image = GalleriaImage.frompath(image_path)
     image.fetch_data()
@@ -217,18 +218,20 @@ def view(image_path, image_format):
     fmt = image.image.format
     ox = image.image.width
     oy = image.image.height
-    rx = config.SCREEN_MAX_WIDTH
-    ry = config.SCREEN_MAX_HEIGHT
+    nx = config.SCREEN_MAX_WIDTH
+    ny = config.SCREEN_MAX_HEIGHT
 
     if export:
-        rx = config.EXPORT_MAX_WIDTH
-        ry = config.EXPORT_MAX_HEIGHT
+        nx = config.EXPORT_MAX_WIDTH
+        ny = config.EXPORT_MAX_HEIGHT
         log(request, image.id, db.LOG_STATUS_EXPORT)
     else:
         log(request, image.id, db.LOG_STATUS_VIEW)
 
-    nx = rx
-    ny = ry
+    if ratio < 1:
+        nx = int(nx * ratio)
+        ny = int(ny * ratio)
+
     if ox > oy:
         ny = int(oy / ox * nx)
     else:
@@ -254,6 +257,8 @@ def view(image_path, image_format):
     etag = etag.replace(config.ROOT_DIR, '')
     etag = etag.replace('.', '_')
     etag = etag.replace('/', '__')
+    if ratio:
+        etag = etag + '__' + str(ratio)
     response.set_etag(etag)
 
     return response
@@ -310,10 +315,8 @@ def info(image_id):
     image = GalleriaImage.fromid(image_id)
     image.expand()
     log(request, image_id, db.LOG_STATUS_INFO)
-    return jsonify(image.get_data(request.script_root))
-    # response = Response(response=json.dumps(image.get_data(request.script_root), indent=4, ensure_ascii=False),
-    #                     status=200, mimetype='application/json; charset=utf-8')
-    # return response
+    app.logger.debug(image.get_data(request.script_root))
+    return jsonify(image.get_data(request.script_root), ensure_ascii=True)
 
 
 def log(request, image_id, status):

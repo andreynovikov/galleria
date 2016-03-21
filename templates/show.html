@@ -155,12 +155,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function addThumbnail(image) {
         image.thumbnail = '{{ request.script_root }}/thumbnail/' + image.id;
-        // pswp options
-        image.w = image.width;
-        image.h = image.height;
-        //noinspection JSUnresolvedVariable
-        image.src = image.path;
-        image.msrc = image.thumbnail;
         //noinspection JSUnresolvedVariable
         image.title = image.description != null && image.description != "" ? image.description : image.name;
 
@@ -283,7 +277,6 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     var openPhotoSwipe = function(index, galleryElement, disableAnimation) {
-        // define options (if needed)
         var options = {
             history: false,
             index: parseInt(index, 10),
@@ -306,9 +299,41 @@ document.addEventListener('DOMContentLoaded', function () {
             options.showAnimationDuration = 0;
         }
 
-        // Pass data to PhotoSwipe and initialize it
+        var imageRatio = 0;
+        var imageRatioQuery = '';
+
         pswp = new PhotoSwipe(pswpElement, PhotoSwipeUI_Default, thumbnails, options);
 
+        // beforeResize event fires each time size of gallery viewport updates
+        pswp.listen('beforeResize', function() {
+            // gallery.viewportSize.x - width of PhotoSwipe viewport
+            // gallery.viewportSize.y - height of PhotoSwipe viewport
+            // window.devicePixelRatio - ratio between physical pixels and device independent pixels
+
+            var newMaxWidth = pswp.viewportSize.x * window.devicePixelRatio;
+            var newMaxHeight = pswp.viewportSize.y * window.devicePixelRatio;
+            console.log(newMaxWidth + " " + newMaxHeight);
+            var newImageRatio = 1;
+            if (newMaxWidth > newMaxHeight) {
+                newImageRatio = newMaxWidth / {{ config.SCREEN_MAX_WIDTH }};
+            } else {
+                newImageRatio = newMaxHeight / {{ config.SCREEN_MAX_HEIGHT }};
+            }
+            if (newImageRatio > 1) {
+                newImageRatio = 1;
+            } else {
+                newImageRatio = Math.ceil(newImageRatio * 10) / 10;
+            }
+
+            if (imageRatio != newImageRatio) {
+                if (imageRatio != 0) {
+                    pswp.invalidateCurrItems();
+                }
+                imageRatio = newImageRatio;
+                imageRatioQuery = imageRatio == 1 ? '' : '?ratio=' + imageRatio;
+            }
+            console.log(imageRatio + " " + imageRatioQuery);
+        });
         pswp.listen('afterChange', function () {
             console.log(pswp.currItem.path);
             {% if config.GOOGLE_ANALYTICS %}
@@ -317,6 +342,11 @@ document.addEventListener('DOMContentLoaded', function () {
             {% endif %}
         });
         pswp.listen('gettingData', function (index, image) {
+            image.w = image.width * imageRatio;
+            image.h = image.height * imageRatio;
+            image.src = image.path + imageRatioQuery;
+            image.msrc = image.thumbnail;
+
             if (!image.info) {
                 image.info = true;
                 var xhr = new XMLHttpRequest();
