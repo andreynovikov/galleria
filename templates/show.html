@@ -312,7 +312,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             var newMaxWidth = pswp.viewportSize.x * window.devicePixelRatio;
             var newMaxHeight = pswp.viewportSize.y * window.devicePixelRatio;
-            console.log(newMaxWidth + " " + newMaxHeight);
             var newImageRatio = 1;
             if (newMaxWidth > newMaxHeight) {
                 newImageRatio = newMaxWidth / {{ config.SCREEN_MAX_WIDTH }};
@@ -332,7 +331,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 imageRatio = newImageRatio;
                 imageRatioQuery = imageRatio == 1 ? '' : '?ratio=' + imageRatio;
             }
-            console.log(imageRatio + " " + imageRatioQuery);
         });
         pswp.listen('afterChange', function () {
             console.log(pswp.currItem.path);

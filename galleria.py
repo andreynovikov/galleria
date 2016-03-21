@@ -315,7 +315,6 @@ def info(image_id):
     image = GalleriaImage.fromid(image_id)
     image.expand()
     log(request, image_id, db.LOG_STATUS_INFO)
-    app.logger.debug(image.get_data(request.script_root))
     return jsonify(image.get_data(request.script_root), ensure_ascii=True)
 
 
