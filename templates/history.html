@@ -1,0 +1,51 @@
+<html>
+<head>
+    <style type="text/css">
+    </style>
+    <script src="/static/lazysizes.min.js" async></script>
+</head>
+<body>
+{% if not authorized %}
+    <form method="post"><input type="password" name="secret"/></form>
+{% elif user %}
+    <h1>{{ user|asip }}</h1>
+    {% set day = None %}
+    <div id="imageList">
+    {% for image in images %}
+        {% if image.day != day %}
+            {% set day = image.day %}
+            <div style="font-weight: bold; clear: left">{{ day.strftime('%Y-%m-%d') }}</div>
+        {% endif %}
+        {% if image.status == 0 %}
+            {% set color = '#faa' %}
+        {% elif image.status == 1 %}
+            {% set color = '#afa' %}
+        {% elif image.status == 2 %}
+            {% set color = '#6a6' %}
+        {% elif image.status == 4 %}
+            {% set color = '#aaf' %}
+        {% elif image.status == 5 %}
+            {% set color = '#faf' %}
+        {% else %}
+            {% set color = '#ccc' %}
+        {% endif %}
+        {% set height = config.THUMBNAIL_WIDTH.s / image.width * image.height %}
+        <a href="{{ request.script_root }}{{ image.bundle }}/{{ image.name }}"><img class="lazyload" data-src="{{ request.script_root }}/thumbnail/{{ image.id|string}}" style="width: {{ config.THUMBNAIL_WIDTH.s }}; height: {{ height }}; border: 3px solid {{ color }}" /></a>
+    {% endfor %}
+    </div>
+{% else %}
+    {% set day = None %}
+    {% set filt = '' %}
+    {% if request.query_string %}
+        {% set qs = '?' + request.query_string|asutf8 %}
+    {% endif %}
+    {% for user in users %}
+        {% if user.day != day %}
+            {% set day = user.day %}
+            <div style="font-weight: bold">{{ day.strftime('%Y-%m-%d') }}</div>
+        {% endif %}
+        <div><a href="/history/{{ user.ip }}/{{ user.day.strftime('%Y-%m-%d') }}{{ qs }}">{{ user.ip|asip }}</a></div>
+    {% endfor %}
+{% endif %}
+</body>
+</html>

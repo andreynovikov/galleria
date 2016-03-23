@@ -4,10 +4,10 @@ import re
 import magic
 from PIL import Image
 
-from flask import Flask, request, render_template, send_file, redirect, abort, jsonify, url_for
+from flask import Flask, request, session, render_template, send_file, redirect, abort, jsonify, url_for
 
 from images import sync_bundle, check_bundle, get_related_labels, GalleriaImage
-from util import to_list, ip2int
+from util import to_list, ip2int, int2ip
 import db
 import config
 
@@ -23,6 +23,7 @@ class QueryStringRedirectMiddleware(object):
 
 
 app = Flask(__name__)
+app.secret_key = config.SECRET_KEY
 app.debug = True
 app.wsgi_app = QueryStringRedirectMiddleware(app.wsgi_app)
 app.jinja_env.lstrip_blocks = True
@@ -81,11 +82,6 @@ def galleria(path_info):
     else:
         response = redirect(url_for('index'))
 
-    """
-    elif action == 'log':
-        response = log(request, image_id)
-    """
-
     # response.cache_control.private = True
     # response.vary = ['Cookie']
     # print >> sys.stderr, response
@@ -120,6 +116,16 @@ def bad_query(error):
 @app.template_test()
 def equalto(value, other):
     return value == other
+
+
+@app.template_filter()
+def asip(value):
+    return int2ip(value)
+
+
+@app.template_filter()
+def asutf8(value):
+    return value.decode('utf-8')
 
 
 def select(bundle):
@@ -224,9 +230,9 @@ def view(image_path, image_format, ratio=1.0):
     if export:
         nx = config.EXPORT_MAX_WIDTH
         ny = config.EXPORT_MAX_HEIGHT
-        log(request, image.id, db.LOG_STATUS_EXPORT)
+        log(image.id, db.LOG_STATUS_EXPORT)
     else:
-        log(request, image.id, db.LOG_STATUS_VIEW)
+        log(image.id, db.LOG_STATUS_VIEW)
 
     if ratio < 1:
         nx = int(nx * ratio)
@@ -267,7 +273,7 @@ def view(image_path, image_format, ratio=1.0):
 def original(image_path):
     image = GalleriaImage.frompath(image_path)
     image.fetch_data()
-    log(request, image.id, db.LOG_STATUS_ORIGINAL)
+    log(image.id, db.LOG_STATUS_ORIGINAL)
     mime_type = magic.from_file(image_path, mime=True).decode('utf-8')
     # cache for one month
     response = send_file(image_path, mimetype=mime_type, cache_timeout=2592000,
@@ -299,7 +305,7 @@ def thumbnail(image_id):
     image = GalleriaImage.fromid(image_id)
     thumbnail_path = image.make_thumbnail(size, force)
 
-    log(request, image_id, db.LOG_STATUS_THUMBNAIL)
+    log(image_id, db.LOG_STATUS_THUMBNAIL)
 
     mime_type = magic.from_file(thumbnail_path, mime=True).decode('utf-8')
     # cache for one month
@@ -314,12 +320,88 @@ def thumbnail(image_id):
 def info(image_id):
     image = GalleriaImage.fromid(image_id)
     image.expand()
-    log(request, image_id, db.LOG_STATUS_INFO)
+    log(image_id, db.LOG_STATUS_INFO)
     return jsonify(image.get_data(request.script_root), ensure_ascii=True)
 
 
-def log(request, image_id, status):
-    user_id = ip2int(request.remote_addr)
+@app.route('/history', defaults={'user': None, 'day': None}, methods=['GET', 'POST'])
+@app.route('/history/<int:user>', defaults={'day': None})
+@app.route('/history/<int:user>/<string:day>')
+def history(user, day):
+    authorized = session.get('auth', None)
+    if request.method == 'POST':
+        secret = request.form['secret']
+        if secret == config.ADMIN_SECRET:
+            authorized = '1'
+            session['auth'] = authorized
+        else:
+            session.pop('auth')
+        redirect(url_for('history'))
+
+    images = None
+    users = None
+
+    if authorized:
+        where = []
+        join = None
+
+        label = request.args.get('-filt.label', None)
+        if label:
+            where.append(db.tbl_image_label + '.label = %s' % label)
+            join = 'INNER JOIN ' + db.tbl_image_label + ' ON (' + db.tbl_image_log + '.image = ' + db.tbl_image_label + '.image)'
+
+        status = request.args.get('-filt.status', None)
+        if status:
+            where.append('status = %s' % status)
+
+        if user:
+            grp = ''
+            if day:
+                sel = ' date_trunc(\'day\', MAX(' + db.tbl_image_log + '.ctime)) AS day, '
+                where.append('date_trunc(\'day\', ' + db.tbl_image_log + '.ctime) = \'%s\'' % day)
+            else:
+                sel = ' date_trunc(\'day\', ' + db.tbl_image_log + '.ctime) AS day, '
+                grp = ', 6'
+            query = 'SELECT id, bundle, name, width, height,' + sel + ' MIN(status) AS status, MAX(' + db.tbl_image_log + \
+                    '.ctime) AS ctime FROM ' + db.tbl_image_log + ' INNER JOIN ' + db.tbl_image + ' ON (' + \
+                    db.tbl_image_log + '.image = id)'
+            if join:
+                query += ' '
+                query += join
+            query += ' WHERE "user" = %s' % user
+            if where:
+                query += ' AND '
+                query += ' AND '.join(where)
+            query += ' GROUP BY id' + grp + ' ORDER BY ctime DESC'
+
+            app.logger.debug("Query: %s" % query)
+
+            images = db.fetch(query)
+        else:
+            query = 'SELECT DISTINCT "user" AS ip, date_trunc(\'day\', ctime) AS day FROM ' + db.tbl_image_log
+
+            if join:
+                query += ' '
+                query += join
+
+            if where:
+                query += ' WHERE '
+                query += ' AND '.join(where)
+
+            query += ' ORDER BY 2 DESC'
+            app.logger.debug("Query: %s" % query)
+
+            users = db.fetch(query)
+
+    return render_template('history.html', config=config, authorized=authorized, images=images, users=users, user=user)
+
+
+def log(image_id, status):
+    user_id = int(session.get('auth', 0))
+    if not user_id:
+        user_id = ip2int(request.remote_addr)
+    if user_id == 1:
+        return
     db.execute("INSERT INTO " + db.tbl_image_log + " VALUES(%s, %s, %s, NOW())", (image_id, user_id, status))
     db.commit()
 
