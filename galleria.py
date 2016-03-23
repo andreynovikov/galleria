@@ -336,7 +336,7 @@ def history(user, day):
             session['auth'] = authorized
         else:
             session.pop('auth')
-        redirect(url_for('history'))
+        redirect(url_for('history'), code=303)
 
     images = None
     users = None

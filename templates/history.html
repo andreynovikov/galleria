@@ -44,7 +44,7 @@
             {% set day = user.day %}
             <div style="font-weight: bold">{{ day.strftime('%Y-%m-%d') }}</div>
         {% endif %}
-        <div><a href="/history/{{ user.ip }}/{{ user.day.strftime('%Y-%m-%d') }}{{ qs }}">{{ user.ip|asip }}</a></div>
+        <div><a href="{{ request.script_root }}/history/{{ user.ip }}/{{ user.day.strftime('%Y-%m-%d') }}{{ qs }}">{{ user.ip|asip }}</a></div>
     {% endfor %}
 {% endif %}
 </body>
