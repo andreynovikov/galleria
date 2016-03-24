@@ -14,6 +14,12 @@ def diff(a, b):
     return [aa for aa in a if aa not in b]
 
 
+def kill_char(string, n):
+    begin = string[:n]
+    end = string[n+1:]
+    return begin + end
+
+
 def to_list(str):
     return str.split(',') if str else []
 

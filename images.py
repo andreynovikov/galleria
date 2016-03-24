@@ -6,7 +6,7 @@ from PIL import Image, ExifTags, IptcImagePlugin
 
 from flask import current_app
 
-from util import diff
+from util import diff, kill_char
 import db
 import config
 
@@ -280,10 +280,16 @@ class GalleriaImage(object):
         timestamp = None
         if IPTC_DATE_CREATED in iptc_info and IPTC_TIME_CREATED in iptc_info:
             timestamp_str = iptc_info[IPTC_DATE_CREATED].decode('utf-8') + iptc_info[IPTC_TIME_CREATED].decode('utf-8')
-            timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S')
+            if len(timestamp_str) == 14:
+                timestamp_str = timestamp_str + '+0000'
+            timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S%z')
         elif EXIF_DATE_TIME_ORIGINAL in exif_info:
             timestamp_str = exif_info[EXIF_DATE_TIME_ORIGINAL]
-            timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S')
+            if len(timestamp_str) == 19:
+                timestamp_str = timestamp_str + '+0000'
+            elif timestamp_str[-3] == ':':
+                timestamp_str = kill_char(timestamp_str, len(timestamp_str)-3)
+            timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S%z')
         elif EXIF_DATE_TIME_DIGITIZED in exif_info:
             timestamp_str = exif_info[EXIF_DATE_TIME_DIGITIZED]
             timestamp = datetime.strptime(timestamp_str, '%Y:%m:%d %H:%M:%S')
