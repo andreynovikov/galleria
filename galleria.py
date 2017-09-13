@@ -222,8 +222,7 @@ def view(image_path, image_format, ratio=1.0):
     image.open()
 
     fmt = image.image.format
-    ox = image.image.width
-    oy = image.image.height
+    ox, oy = image.image.size
     nx = config.SCREEN_MAX_WIDTH
     ny = config.SCREEN_MAX_HEIGHT
 
@@ -244,14 +243,14 @@ def view(image_path, image_format, ratio=1.0):
         nx = int(ox / oy * ny)
 
     if ox > int(nx * config.SCREEN_DELTA) or oy > int(ny * config.SCREEN_DELTA):
-        im = image.image.resize((nx, ny), Image.LANCZOS)
+        im = image.image.resize((nx, ny), Image.ANTIALIAS)
     else:
         im = image.image
 
     b = io.BytesIO()
     im.save(b, format=fmt)
     b.seek(0)
-    mime_type = magic.from_buffer(b.read(1024), mime=True).decode('utf-8')
+    mime_type = magic.from_buffer(b.read(1024), mime=True) #.decode('utf-8')
     b.seek(0)
 
     # cache for one month
@@ -274,7 +273,7 @@ def original(image_path):
     image = GalleriaImage.frompath(image_path)
     image.fetch_data()
     log(image.id, db.LOG_STATUS_ORIGINAL)
-    mime_type = magic.from_file(image_path, mime=True).decode('utf-8')
+    mime_type = magic.from_file(image_path, mime=True) #.decode('utf-8')
     # cache for one month
     response = send_file(image_path, mimetype=mime_type, cache_timeout=2592000,
                          conditional=True, as_attachment=True, add_etags=True)
@@ -307,7 +306,7 @@ def thumbnail(image_id):
 
     log(image_id, db.LOG_STATUS_THUMBNAIL)
 
-    mime_type = magic.from_file(thumbnail_path, mime=True).decode('utf-8')
+    mime_type = magic.from_file(thumbnail_path, mime=True) #.decode('utf-8')
     # cache for one month
     response = send_file(thumbnail_path, mimetype=mime_type, cache_timeout=2592000,
                          conditional=True, add_etags=True)
@@ -321,7 +320,7 @@ def info(image_id):
     image = GalleriaImage.fromid(image_id)
     image.expand()
     log(image_id, db.LOG_STATUS_INFO)
-    return jsonify(image.get_data(request.script_root), ensure_ascii=True)
+    return jsonify(image.get_data(request.script_root)) #, ensure_ascii=True)
 
 
 @app.route('/history', defaults={'user': None, 'day': None}, methods=['GET', 'POST'])
