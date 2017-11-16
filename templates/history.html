@@ -9,12 +9,13 @@
     <form method="post"><input type="password" name="secret"/></form>
 {% elif user %}
     <h1>{{ user|asip }}</h1>
-    {% set day = None %}
+    {% set day = [""] %}
     <div id="imageList">
-    {% for image in images %}
-        {% if image.day != day %}
-            {% set day = image.day %}
-            <div style="font-weight: bold; clear: left">{{ day.strftime('%Y-%m-%d') }}</div>
+        {% for image in images %}
+        {% if image.day != day[0] %}
+            {% set _ = day.pop() %}
+            {% set _ = day.append(image.day)%}
+            <div style="font-weight: bold; clear: left">{{ image.day.strftime('%Y-%m-%d') }}</div>
         {% endif %}
         {% if image.status == 0 %}
             {% set color = '#faa' %}
@@ -34,15 +35,16 @@
     {% endfor %}
     </div>
 {% else %}
-    {% set day = None %}
+    {% set day = [""] %}
     {% set filt = '' %}
     {% if request.query_string %}
         {% set qs = '?' + request.query_string|asutf8 %}
     {% endif %}
     {% for user in users %}
-        {% if user.day != day %}
-            {% set day = user.day %}
-            <div style="font-weight: bold">{{ day.strftime('%Y-%m-%d') }}</div>
+        {% if user.day != day[0] %}
+            {% set _ = day.pop() %}
+            {% set _ = day.append(user.day)%}
+            <div style="font-weight: bold">{{ user.day.strftime('%Y-%m-%d') }}</div>
         {% endif %}
         <div><a href="{{ request.script_root }}/history/{{ user.ip }}/{{ user.day.strftime('%Y-%m-%d') }}{{ qs }}">{{ user.ip|asip }}</a></div>
     {% endfor %}
