@@ -1,14 +1,20 @@
 <html>
 <head>
     <style type="text/css">
+        @import url("/theme/assets/css/font-awesome.min.css");
+
+        a .fa {font-size: 20px; color: #000; padding: 0 5px}
     </style>
     <script src="/static/lazysizes.min.js" async></script>
 </head>
 <body>
-{% if not authorized %}
-    <form method="post"><input type="password" name="secret"/></form>
-{% elif user %}
-    <h1>{{ user|asip }}</h1>
+{% if user %}
+    <h1>
+        {{ user.displayName }}
+        {% for identity in user.identities %}
+        <a href="{{ identity.profileUrl }}"><i class="fa fa-{{ identity.provider }}"></i></a>
+        {% endfor %}
+    </h1>
     {% set day = [""] %}
     <div id="imageList">
         {% for image in images %}
@@ -46,7 +52,9 @@
             {% set _ = day.append(user.day)%}
             <div style="font-weight: bold">{{ user.day.strftime('%Y-%m-%d') }}</div>
         {% endif %}
-        <div><a href="{{ request.script_root }}/history/{{ user.ip }}/{{ user.day.strftime('%Y-%m-%d') }}{{ qs }}">{{ user.ip|asip }}</a></div>
+            <div><a href="{{ request.script_root }}/history/{{ user.id }}/{{ user.day.strftime('%Y-%m-%d') }}{{ qs }}">
+                    {% if user.displayName %}{{ user.displayName }}{% else %}{{ user.id }}{% endif %}
+            </a></div>
     {% endfor %}
 {% endif %}
 </body>

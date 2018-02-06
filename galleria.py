@@ -5,9 +5,10 @@ import magic
 from PIL import Image
 
 from flask import Flask, request, session, render_template, send_file, redirect, abort, jsonify, url_for
+from pyoneall import OneAll
 
 from images import sync_bundle, check_bundle, get_related_labels, GalleriaImage
-from util import to_list, ip2int, int2ip
+from util import to_list
 import db
 import config
 
@@ -71,6 +72,8 @@ def galleria(path_info):
     elif action is not None:
         response = 'Unknown action'
     elif bundle_path or request.args:
+        if session.get('auth', None) is None:
+            return redirect(url_for('login', next=request.url))
         query_string = request.query_string.decode('utf-8')
         if bundle_path:
             query = bundle_path
@@ -116,11 +119,6 @@ def bad_query(error):
 @app.template_test()
 def equalto(value, other):
     return value == other
-
-
-@app.template_filter()
-def asip(value):
-    return int2ip(value)
 
 
 @app.template_filter()
@@ -323,86 +321,133 @@ def info(image_id):
     return jsonify(image.get_data(request.script_root)) #, ensure_ascii=True)
 
 
-@app.route('/history', defaults={'user': None, 'day': None}, methods=['GET', 'POST'])
-@app.route('/history/<int:user>', defaults={'day': None})
-@app.route('/history/<int:user>/<string:day>')
-def history(user, day):
+@app.route('/history', defaults={'user_id': None, 'day': None}, methods=['GET', 'POST'])
+@app.route('/history/<string:user_id>', defaults={'day': None})
+@app.route('/history/<string:user_id>/<string:day>')
+def history(user_id, day):
     authorized = session.get('auth', None)
-    if request.method == 'POST':
-        secret = request.form['secret']
-        if secret == config.ADMIN_SECRET:
-            authorized = '1'
-            session['auth'] = authorized
-        else:
-            session.pop('auth')
-        redirect(url_for('history'), code=303)
+    if not authorized or authorized not in config.ADMINS:
+        return redirect(url_for('login', next=request.url))
 
     images = None
     users = None
+    user = None
 
-    if authorized:
-        where = []
-        join = None
+    where = []
+    join = None
 
-        label = request.args.get('-filt.label', None)
-        if label:
-            where.append(db.tbl_image_label + '.label = %s' % label)
-            join = 'INNER JOIN ' + db.tbl_image_label + ' ON (' + db.tbl_image_log + '.image = ' + db.tbl_image_label + '.image)'
+    label = request.args.get('-filt.label', None)
+    if label:
+        where.append(db.tbl_image_label + '.label = %s' % label)
+        join = 'INNER JOIN ' + db.tbl_image_label + ' ON (' + db.tbl_image_log + '.image = ' + db.tbl_image_label + '.image)'
 
-        status = request.args.get('-filt.status', None)
-        if status:
-            where.append('status = %s' % status)
+    status = request.args.get('-filt.status', None)
+    if status:
+        where.append('status = %s' % status)
 
-        if user:
-            grp = ''
-            if day:
-                sel = ' date_trunc(\'day\', MAX(' + db.tbl_image_log + '.ctime)) AS day, '
-                where.append('date_trunc(\'day\', ' + db.tbl_image_log + '.ctime) = \'%s\'' % day)
-            else:
-                sel = ' date_trunc(\'day\', ' + db.tbl_image_log + '.ctime) AS day, '
-                grp = ', 6'
-            query = 'SELECT id, bundle, name, width, height,' + sel + ' MIN(status) AS status, MAX(' + db.tbl_image_log + \
-                    '.ctime) AS ctime FROM ' + db.tbl_image_log + ' INNER JOIN ' + db.tbl_image + ' ON (' + \
-                    db.tbl_image_log + '.image = id)'
-            if join:
-                query += ' '
-                query += join
-            query += ' WHERE "user" = %s' % user
-            if where:
-                query += ' AND '
-                query += ' AND '.join(where)
-            query += ' GROUP BY id' + grp + ' ORDER BY ctime DESC'
+    oa = OneAll(site_name=config.ONEALL_SITE_NAME, public_key=config.ONEALL_PUBLIC_KEY, private_key=config.ONEALL_PRIVATE_KEY)
 
-            app.logger.debug("Query: %s" % query)
-
-            images = db.fetch(query)
+    if user_id:
+        user = {'id': user_id}
+        if '-' in user_id:
+            oa_user = oa.user(user_id)
+            app.logger.debug("User: %s" % oa_user['identities'])
+            for identity in oa_user['identities']:
+                if identity['provider'] == 'vkontakte':
+                    identity['provider'] = 'vk'
+                if identity['displayName']:
+                    user['displayName'] = identity['displayName']
+            user['identities'] = oa_user['identities']
         else:
-            query = 'SELECT DISTINCT "user" AS ip, date_trunc(\'day\', ctime) AS day FROM ' + db.tbl_image_log
+            user['displayName'] = user_id
 
-            if join:
-                query += ' '
-                query += join
+        grp = ''
+        if day:
+            sel = ' date_trunc(\'day\', MAX(' + db.tbl_image_log + '.ctime)) AS day, '
+            where.append('date_trunc(\'day\', ' + db.tbl_image_log + '.ctime) = \'%s\'' % day)
+        else:
+            sel = ' date_trunc(\'day\', ' + db.tbl_image_log + '.ctime) AS day, '
+            grp = ', 6'
+        query = 'SELECT id, bundle, name, width, height,' + sel + ' MIN(status) AS status, MAX(' + db.tbl_image_log + \
+                '.ctime) AS ctime FROM ' + db.tbl_image_log + ' INNER JOIN ' + db.tbl_image + ' ON (' + \
+                db.tbl_image_log + '.image = id)'
+        if join:
+            query += ' '
+            query += join
+        query += ' WHERE "user" = \'%s\'' % user_id
+        if where:
+            query += ' AND '
+            query += ' AND '.join(where)
+        query += ' GROUP BY id' + grp + ' ORDER BY ctime DESC'
 
-            if where:
-                query += ' WHERE '
-                query += ' AND '.join(where)
+        app.logger.debug("Query: %s" % query)
 
-            query += ' ORDER BY 2 DESC'
-            app.logger.debug("Query: %s" % query)
+        images = db.fetch(query)
+    else:
+        query = 'SELECT DISTINCT "user" AS id, date_trunc(\'day\', ctime) AS day FROM ' + db.tbl_image_log
 
-            users = db.fetch(query)
+        if join:
+            query += ' '
+            query += join
 
-    return render_template('history.html', config=config, authorized=authorized, images=images, users=users, user=user)
+        if where:
+            query += ' WHERE '
+            query += ' AND '.join(where)
+
+        query += ' ORDER BY 2 DESC'
+        app.logger.debug("Query: %s" % query)
+
+        users = db.fetch(query)
+
+        for u in users:
+            if '-' in u['id']:
+                oa_user = oa.user(u['id'])
+                app.logger.debug("User: %s" % oa_user['identities'])
+                for identity in oa_user['identities']:
+                    if identity['displayName']:
+                        u['displayName'] = identity['displayName']
+                        break
+
+    return render_template('history.html', config=config, images=images, users=users, user=user)
 
 
 def log(image_id, status):
-    user_id = int(session.get('auth', 0))
-    if not user_id:
-        user_id = ip2int(request.remote_addr)
-    if user_id == 1:
+    user_id = session.get('auth', None)
+    if user_id is None:
+        user_id = request.remote_addr
+    if user_id in config.ADMINS:
         return
     db.execute("INSERT INTO " + db.tbl_image_log + " VALUES(%s, %s, %s, NOW())", (image_id, user_id, status))
     db.commit()
+
+
+@app.route('/login')
+def login():
+    return render_template('login.html', config=config)
+
+
+@app.route('/login/back', methods=['POST'])
+def login_result():
+    token = request.form['connection_token']
+    url = request.args.get('next', None)
+    if token:
+        oa = OneAll(site_name=config.ONEALL_SITE_NAME, public_key=config.ONEALL_PUBLIC_KEY, private_key=config.ONEALL_PRIVATE_KEY)
+        connection = oa.connection(token)
+        if connection.user:
+            session['auth'] = connection.user.user_token
+            app.logger.debug("User: %s" % session['auth'])
+            if url:
+                return redirect(url)
+            else:
+                return redirect(url_for('index'))
+    session.pop('auth')
+    return redirect(url_for('login'), code=303)
+
+
+@app.route('/logout')
+def logout():
+    session.pop('auth')
+    return redirect(url_for('index'))
 
 
 if __name__ == '__main__':

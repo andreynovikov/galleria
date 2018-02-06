@@ -131,7 +131,7 @@
                     {% set class = class + ' cur not' %}
                     {% set url = 'labels=' + current_labels|join(',') + ';notlabels=' + current_not_labels|reject('equalto',label.id|string)|list|join(',') %}
                 {% endif %}
-                <li><a class="{{ class }}" href="?{{ url }}" title="{{ label.count }}">{{ label.name }}</a></li>
+                {% if label.id != 24 %}<li><a class="{{ class }}" href="?{{ url }}" title="{{ label.count }}">{{ label.name }}</a></li>{% endif %}
             {% endfor %}
         </ul>
         <form action="{{ request.script_root }}/">
