@@ -13,6 +13,9 @@ import db
 import config
 
 
+mobile_re = re.compile('iphone|ipad|ipod|android|blackberry|mini|windows\\sce|palm', re.IGNORECASE)
+
+
 class QueryStringRedirectMiddleware(object):
     def __init__(self, application):
         self.application = application
@@ -81,7 +84,8 @@ def galleria(path_info):
             query = '/'
         if query_string:
             query = query + '?' + query_string
-        response = render_template('show.html', config=config, query=query)
+        mobile = re.search(mobile_re, str(request.user_agent)) is not None
+        response = render_template('show.html', config=config, query=query, mobile=mobile)
     else:
         response = redirect(url_for('index'))
 

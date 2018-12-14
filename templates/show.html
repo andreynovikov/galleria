@@ -4,6 +4,11 @@
     <link rel="stylesheet" href="/static/photoswipe/photoswipe.css">
     <link rel="stylesheet" href="/static/photoswipe/default-skin/default-skin.css">
     <script src="/static/masonry.pkgd.min.js"></script>
+    {% if config.LASYSIZES_BLUR_UP_PLUGIN and not mobile %}
+    <script src="/static/ls.object-fit.min.js"></script>
+    <script src="/static/ls.parent-fit.min.js"></script>
+    <script src="/static/ls.blur-up.min.js"></script>
+    {% endif %}
     <script src="/static/lazysizes.min.js" async></script>
     <script src="/static/photoswipe/photoswipe.min.js" async></script>
     <script src="/static/photoswipe/photoswipe-ui-default.min.js" async></script>
@@ -35,15 +40,40 @@
             display: block;
             max-width: 100%;
         }
+        {% if config.LASYSIZES_BLUR_UP_PLUGIN and not mobile %}
+        img.ls-blur-up-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+        img.ls-blur-up-img {
+            filter: blur(10px);
+            opacity: 1;
+            transition: opacity 1000ms,
+            filter 1500ms;
+        }
+        img.ls-blur-up-img.ls-inview.ls-original-loaded {
+            opacity: 0;
+            filter: blur(5px);
+        }
+        img.lazyload {
+            opacity: 0;
+        }
+        {% else %}
         .lazyload {
-        	opacity: 0;
-        	transform: scale(0.9);
+            opacity: 0;
+            transform: scale(0.9);
         }
         .lazyloaded {
-        	opacity: 1;
-	        transform: scale(1);
-	        transition: all 700ms;
+            opacity: 1;
+            transform: scale(1);
+            transition: all 700ms;
         }
+        {% endif %}
 
         .pswp__caption__center {
             overflow: hidden;
@@ -136,7 +166,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var masonry = new Masonry(thumbnailsElement, {
         initLayout: false,
         fitWidth: true,
-        isFitWidth: true,
+        horizontalOrder: true,
+        stagger: 30,
         itemSelector: '.thumbnail',
         columnWidth: '.grid-sizer'
     });
@@ -175,6 +206,7 @@ document.addEventListener('DOMContentLoaded', function () {
         img.title = image.title;
         img.className = 'lazyload';
         img.setAttribute('data-src', image.thumbnail);
+        img.setAttribute('data-lowsrc', image.thumbnail + "?size=s");
         img.setAttribute('data-sizes', '(max-width: 736px) 80px, (min-width: 1201px) 400px, 200px)');
         img.setAttribute('data-srcset', image.thumbnail + "?size=s 80w, " + image.thumbnail +
                                         "?size=m 200w, " + image.thumbnail + "?size=l 400w");
