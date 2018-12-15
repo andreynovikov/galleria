@@ -1,0 +1,10 @@
+# Configure LGTM for this package
+
+path_classifiers:
+  library:
+    - static/ls.object-fit.min.js
+    - static/ls.parent-fit.min.js
+    - static/ls.blur-up.min.js
+    - static/lazysizes.min.js
+    - static/masonry.pkgd.min.js
+    - static/photoswipe/*
