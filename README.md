@@ -1,4 +1,6 @@
-﻿## Introduction
+[![Build Status](https://travis-ci.org/andreynovikov/galleria.svg?branch=master)](https://travis-ci.org/andreynovikov/galleria)
+ 
+## Introduction
 
 Galleria is a lightweight photo gallery application written in Python. The main ideas behind it are:
 
