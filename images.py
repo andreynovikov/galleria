@@ -72,7 +72,7 @@ def sync_bundle(path, bundle, should_update_metadata=False):
     for name in sorted(items):
         # Image is in the directory but not in database
         if items[name] == 2:
-            image = GalleriaImage.create(bundle, name)
+            image = GalleriaImage.create(bundle, name) # lgtm [py/multiple-definition]
         # Image is in the database but not in the directory
         elif items[name] == 1:
             image = GalleriaImage.fromid(ids[name])
