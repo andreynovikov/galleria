@@ -90,7 +90,7 @@
         </ul>
     </div><!-- No Spaces
  --><div id="filter">
-    {% if related_labels %}
+        {% if related_labels %}
             <h2>Related Labels:</h2>
             <ul class="labels">
                 {% for label in related_labels %}
@@ -101,6 +101,7 @@
                 {% endfor %}
             </ul>
         {% endif %}
+        {% if labels %}    
         <h2>Labels:</h2>
         {% set related_ids = related_labels|map(attribute='id')|list %}
         {% set max_count = labels|map(attribute='count')|sort|last %}
@@ -134,6 +135,7 @@
                 {% if label.id != 24 %}<li><a class="{{ class }}" href="?{{ url }}" title="{{ label.count }}">{{ label.name }}</a></li>{% endif %}
             {% endfor %}
         </ul>
+        {% endif %}
         <form id="show-form" action="{{ request.script_root }}/">
             <input type="hidden" name="-filt.labels" value="{{ current_labels|join(',') }}"/>
             <input type="hidden" name="-filt.notlabels" value="{{ current_not_labels|join(',') }}"/>

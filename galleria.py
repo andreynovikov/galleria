@@ -44,6 +44,7 @@ app.debug = True
 app.wsgi_app = QueryStringRedirectMiddleware(app.wsgi_app)
 app.jinja_env.lstrip_blocks = True
 app.jinja_env.trim_blocks = True
+app.cli.add_command(db.init_db_command)
 app.cli.add_command(test)
 
 
