@@ -2,6 +2,7 @@ import os
 import io
 import re
 import magic
+import click
 from PIL import Image
 
 from flask import Flask, request, session, render_template, send_file, redirect, abort, jsonify, url_for
@@ -14,6 +15,17 @@ import config
 
 
 mobile_re = re.compile('iphone|ipad|ipod|android|blackberry|mini|windows\\sce|palm', re.IGNORECASE)
+
+
+PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+TEST_PATH = os.path.join(PROJECT_ROOT, 'tests.py')
+
+
+@click.command()
+def test():
+    import pytest
+    rv = pytest.main([TEST_PATH, '--verbose'])
+    exit(rv)
 
 
 class QueryStringRedirectMiddleware(object):
@@ -32,6 +44,7 @@ app.debug = True
 app.wsgi_app = QueryStringRedirectMiddleware(app.wsgi_app)
 app.jinja_env.lstrip_blocks = True
 app.jinja_env.trim_blocks = True
+app.cli.add_command(test)
 
 
 @app.route('/', defaults={'path_info': None})

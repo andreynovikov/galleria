@@ -134,7 +134,7 @@
                 {% if label.id != 24 %}<li><a class="{{ class }}" href="?{{ url }}" title="{{ label.count }}">{{ label.name }}</a></li>{% endif %}
             {% endfor %}
         </ul>
-        <form action="{{ request.script_root }}/">
+        <form id="show-form" action="{{ request.script_root }}/">
             <input type="hidden" name="-filt.labels" value="{{ current_labels|join(',') }}"/>
             <input type="hidden" name="-filt.notlabels" value="{{ current_not_labels|join(',') }}"/>
             <input type="submit" value="Show"/>
