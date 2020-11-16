@@ -211,6 +211,7 @@ document.addEventListener('DOMContentLoaded', function () {
         img.setAttribute('data-srcset', image.thumbnail + "?size=s 80w, " + image.thumbnail +
                                         "?size=m 200w, " + image.thumbnail + "?size=l 400w");
         img.onclick = onThumbnailClick;
+        img.onauxclick = onThumbnailMiddleClick;
         div.appendChild(img);
         thumbnailsElement.appendChild(div);
 
@@ -316,6 +317,33 @@ document.addEventListener('DOMContentLoaded', function () {
             // open PhotoSwipe if valid index found
             openPhotoSwipe(index, clickedGallery);
         }
+        return false;
+    };
+
+    // triggers when user middle clicks on thumbnail
+    var onThumbnailMiddleClick = function(e) {
+        e.preventDefault ? e.preventDefault() : e.returnValue = false;
+
+        if (event.button != 1) {
+            return;
+        }
+
+        var eTarget = e.target || e.srcElement;
+
+        // find root element of slide
+        var clickedListItem = closest(eTarget, function(el) {
+            return (el.tagName && el.tagName.toUpperCase() === 'DIV');
+        });
+
+        if (!clickedListItem) {
+            return;
+        }
+
+        var index = clickedListItem.getAttribute('data-image-index');
+        if (index >= 0) {
+            window.open('{{ request.script_root }}' + thumbnails[index].bundle + '/' + thumbnails[index].name, '_blank');
+        }
+
         return false;
     };
 
