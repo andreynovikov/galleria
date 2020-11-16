@@ -4,8 +4,11 @@ import re
 import magic
 import click
 from PIL import Image
+from PIL.TiffImagePlugin import IFDRational
 
 from flask import Flask, request, session, render_template, send_file, redirect, abort, jsonify, url_for
+from flask.json import JSONEncoder
+
 from pyoneall import OneAll
 
 from images import sync_bundle, check_bundle, get_related_labels, GalleriaImage
@@ -28,6 +31,16 @@ def test():
     exit(rv)
 
 
+class IFDRationalEncoder(JSONEncoder):
+    def default(self, obj):
+        try:
+            if isinstance(obj, IFDRational):
+                return [obj.numerator, obj.denominator]
+            return JSONEncoder.default(self, obj)
+        except TypeError:
+            return str(obj)
+
+
 class QueryStringRedirectMiddleware(object):
     def __init__(self, application):
         self.application = application
@@ -40,6 +53,7 @@ class QueryStringRedirectMiddleware(object):
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
+app.json_encoder = IFDRationalEncoder
 app.debug = True
 app.wsgi_app = QueryStringRedirectMiddleware(app.wsgi_app)
 app.jinja_env.lstrip_blocks = True
@@ -373,7 +387,7 @@ def history(user_id, day):
             for identity in oa_user['identities']:
                 if identity['provider'] == 'vkontakte':
                     identity['provider'] = 'vk'
-                if identity['displayName']:
+                if 'displayName' in identity:
                     user['displayName'] = identity['displayName']
             user['identities'] = oa_user['identities']
         else:
@@ -422,7 +436,7 @@ def history(user_id, day):
                 oa_user = oa.user(u['id'])
                 app.logger.debug("User: %s" % oa_user['identities'])
                 for identity in oa_user['identities']:
-                    if identity['displayName']:
+                    if 'displayName' in identity:
                         u['displayName'] = identity['displayName']
                         break
 
