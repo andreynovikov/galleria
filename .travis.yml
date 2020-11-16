@@ -2,6 +2,9 @@ sudo: false
 language: python
 cache: pip
 
+services:
+  - postgresql
+
 python:
   - 3.4
   - 3.5
@@ -11,13 +14,16 @@ install:
   - pip install -r requirements.txt
   - pip install pytest
 
-before_script:
-  - export FLASK_APP="$TRAVIS_BUILD_DIR/galleria.py"
-  - export FLASK_DEBUG=1
-
 branches:
   only:
     - master
 
+before_script:
+  - psql -c 'create database galleria;' -U postgres
+  - echo "SECRET_KEY='secret_key'" > $TRAVIS_BUILD_DIR/local_config.py
+  - export FLASK_APP="$TRAVIS_BUILD_DIR/galleria.py"
+  - export FLASK_DEBUG=1
+
 script:
+  - flask init-db
   - flask test

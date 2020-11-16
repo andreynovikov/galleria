@@ -1,9 +1,12 @@
+import click
 import psycopg2
 import psycopg2.extras
 
 from flask import g, current_app
+from flask.cli import with_appcontext
 
 import config
+
 
 tbl_image = config.DB_TABLE_PREFIX + 'image'
 tbl_image_label = config.DB_TABLE_PREFIX + 'label_image'
@@ -18,6 +21,7 @@ LOG_STATUS_VIEW = 1
 LOG_STATUS_INFO = 2
 LOG_STATUS_EXPORT = 3
 LOG_STATUS_THUMBNAIL = 4
+
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -80,3 +84,17 @@ def fetch(query, args=(), one=False, as_list=False):
         return [element for (element,) in result]
     else:
         return result
+
+
+def init_db():
+    db = get_db()
+    with db.cursor() as cursor, current_app.open_resource('schema.sql') as f:
+        cursor.execute(f.read().decode('utf8'))
+        db.commit()
+
+
+@click.command('init-db')
+@with_appcontext
+def init_db_command():
+    init_db()
+    click.echo('Initialized the database.')
