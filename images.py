@@ -10,6 +10,7 @@ from util import diff, kill_char
 import db
 import config
 
+EXIF_ORIENTATION = 274  # http://sylvana.net/jpegcrop/exif_orientation.html
 EXIF_DATE_TIME_ORIGINAL = 36867
 EXIF_DATE_TIME_DIGITIZED = 36868
 
@@ -272,6 +273,13 @@ class GalleriaImage(object):
         fields = []
         values = []
 
+        if EXIF_ORIENTATION in exif_info:
+            orientation = exif_info[EXIF_ORIENTATION]
+            fields.append("orientation")
+            values.append(orientation)
+        else:
+            orientation = 1
+
         if IPTC_OBJECT_NAME in iptc_info:
             title = iptc_info[IPTC_OBJECT_NAME].decode('utf-8')
             fields.append("description")
@@ -308,18 +316,19 @@ class GalleriaImage(object):
             values.append(author_id)
 
         if IPTC_KEYWORDS in iptc_info:
-            labels = []
+            labels = set()
             if isinstance(iptc_info[IPTC_KEYWORDS], list):
                 for label in iptc_info[IPTC_KEYWORDS]:
-                    labels.append(label.decode('utf-8'))
+                    labels.add(label.decode('utf-8'))
             else:
-                labels.append(iptc_info[IPTC_KEYWORDS].decode('utf-8'))
+                labels.add(iptc_info[IPTC_KEYWORDS].decode('utf-8'))
             self.set_labels(labels)
 
+        swap_dimentions = orientation in (5, 6, 7, 8)
         fields.append("width")
-        values.append(self.image.width)
+        values.append(self.image.width if not swap_dimentions else self.image.height)
         fields.append("height")
-        values.append(self.image.height)
+        values.append(self.image.height if not swap_dimentions else self.image.width)
 
         if fields:
             values.append(self.id)
@@ -339,10 +348,21 @@ class GalleriaImage(object):
             os.makedirs(thumbnail_dir, 0o750)
         # Rescale and save image
         with Image.open(self.path) as image:
-            ox = image.width
-            oy = image.height
+            ox, oy = image.size
+            r = oy / ox
+            exif_info = image._getexif() or {}
+            if EXIF_ORIENTATION in exif_info:
+                orientation = exif_info[EXIF_ORIENTATION]
+            else:
+                orientation = 1
+            if orientation == 6:
+                image = image.rotate(-90, expand=True)
+                r = 1 / r
+            if orientation == 8:
+                image = image.rotate(90, expand=True)
+                r = 1 / r
             nx = int(config.THUMBNAIL_WIDTH[size])
-            ny = int(oy * nx / ox)
+            ny = int(r * nx)
             image.thumbnail((nx, ny))
             if os.path.isfile(thumbnail_path):
                 os.remove(thumbnail_path)

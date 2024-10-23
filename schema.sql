@@ -16,6 +16,7 @@ CREATE TABLE image (
     bundle character varying(250) DEFAULT ''::character varying NOT NULL,
     width integer DEFAULT 0 NOT NULL,
     height integer DEFAULT 0 NOT NULL,
+    orientation integer DEFAULT 0 NOT NULL,
     stime timestamp without time zone,
     description text,
     ctime timestamp without time zone,

@@ -187,7 +187,7 @@ def select(bundle):
     if censored is not None:
         should_sync_bundle = False
         where.append('censored = %s' % censored)
-    elif not request.args.get('any', None) and (not labels or '424' not in labels.split(',')):
+    elif not request.args.get('any', None):
         where.append('censored = 0')
 
     if bundle:
@@ -252,7 +252,11 @@ def view(image_path, image_format, ratio=1.0):
     image.open()
 
     fmt = image.image.format
-    ox, oy = image.image.size
+    swap_dimentions = image.orientation in (5, 6, 7, 8)
+    if swap_dimentions:
+        oy, ox = image.image.size
+    else:
+        ox, oy = image.image.size
     nx = config.SCREEN_MAX_WIDTH
     ny = config.SCREEN_MAX_HEIGHT
 
@@ -272,10 +276,14 @@ def view(image_path, image_format, ratio=1.0):
     else:
         nx = int(ox / oy * ny)
 
-    if ox > int(nx * config.SCREEN_DELTA) or oy > int(ny * config.SCREEN_DELTA):
-        im = image.image.resize((nx, ny), Image.ANTIALIAS)
+    if image.orientation == 6:
+        im = image.image.rotate(-90, expand=True)
+    elif image.orientation == 8:
+        im = image.image.rotate(90, expand=True)
     else:
         im = image.image
+    if ox > int(nx * config.SCREEN_DELTA) or oy > int(ny * config.SCREEN_DELTA):
+        im = im.resize((nx, ny), Image.ANTIALIAS)
 
     b = io.BytesIO()
     im.save(b, format=fmt)
