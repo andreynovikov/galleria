@@ -4,6 +4,9 @@
     <!--suppress CssUnusedSymbol -->
     <style>
         body { display: flex }
+        #bundles {
+            min-width: 300px
+        }
         #bundles, #filter { padding: 0 20px }
         #bundles ul {
             list-style: none;
@@ -13,23 +16,23 @@
         #filter { border-left: 2px solid #DDDDDD }
 
         .tag-0 {
-            font-size: 130%
+            font-size: 140%
         }
 
         .tag-1 {
-            font-size: 115%
+            font-size: 125%
         }
 
         .tag-2 {
-            font-size: 100%
+            font-size: 110%
         }
 
         .tag-3 {
-            font-size: 85%
+            font-size: 95%
         }
 
         .tag-4 {
-            font-size: 70%
+            font-size: 80%
         }
 
         .pls, .rel {
@@ -72,6 +75,32 @@
             margin-top: 20px
         }
 
+        button {
+            background-color: #FFFFFF;
+            border: 1px solid #DDDDDD;
+            border-radius: .5rem;
+            color: #111827;
+            font-size: 105%;
+            font-weight: 600;
+            line-height: 1.25rem;
+            padding: .5rem 1rem;
+            text-align: center;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        button:hover {
+            background-color: rgb(249,250,251);
+        }
+
+        button:focus {
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+        }
+
+        button:focus-visible {
+            box-shadow: none;
+        }
+
         /* Mobile */
         @media screen and (max-width: 736px) {
             body { flex-direction: column }
@@ -91,7 +120,7 @@
     </div><!-- No Spaces
  --><div id="filter">
         {% if related_labels %}
-            <h2>Related Labels:</h2>
+            <h2>Related labels:</h2>
             <ul class="labels">
                 {% for label in related_labels %}
                     {% set half = (label.name|length / 2 + 0.9)|int %}
@@ -101,7 +130,7 @@
                 {% endfor %}
             </ul>
         {% endif %}
-        {% if labels %}    
+        {% if labels %}
         <h2>Labels:</h2>
         {% set related_ids = related_labels|map(attribute='id')|list %}
         {% set max_count = labels|map(attribute='count')|sort|last %}
@@ -132,14 +161,16 @@
                     {% set class = class + ' cur not' %}
                     {% set url = 'labels=' + current_labels|join(',') + ';notlabels=' + current_not_labels|reject('equalto',label.id|string)|list|join(',') %}
                 {% endif %}
-                {% if label.id != 24 %}<li><a class="{{ class }}" href="?{{ url }}" title="{{ label.count }}">{{ label.name }}</a></li>{% endif %}
+                <li><a class="{{ class }}" href="?{{ url }}" title="{{ label.count }}">{{ label.name }}</a></li>
             {% endfor %}
         </ul>
         {% endif %}
         <form id="show-form" action="{{ request.script_root }}/">
             <input type="hidden" name="-filt.labels" value="{{ current_labels|join(',') }}"/>
             <input type="hidden" name="-filt.notlabels" value="{{ current_not_labels|join(',') }}"/>
-            <input type="submit" value="Show"/>
+	    {% if current_labels %}
+            <button type="submit">Show</button>
+	    {% endif %}
         </form>
     </div>
 {% endblock %}
